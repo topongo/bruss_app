@@ -18,7 +18,7 @@ class BrussApi {
   const BrussApi();
 
   static Future<ApiResponse<T>> request<T extends BrussType>(T Function(Map<String, dynamic>) construct, String endpoint) async {
-    return http.get(Uri.parse("http://192.168.1.101:8000/api/v1/$endpoint"))
+    return http.get(Uri.parse("http://127.0.0.1:8000/api/v1/$endpoint"))
       .then((response) {
         switch(response.statusCode) {
           case 200: 

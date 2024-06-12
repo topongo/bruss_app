@@ -1,10 +1,14 @@
 import 'package:bruss/data/stop.dart';
+import 'package:bruss/data/trip.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+// import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:vector_map_tiles/vector_map_tiles.dart';
 import 'data/area.dart';
 import 'api.dart';
 import 'package:provider/provider.dart';
@@ -14,6 +18,7 @@ import 'database/database.dart';
 
 
 const trento = LatLng(46.0620, 11.1294);
+late Style mapStyle;
 
 void main() async {
   print("${await getApplicationDocumentsDirectory()}");
@@ -25,6 +30,10 @@ void main() async {
     FlutterError.presentError(FlutterErrorDetails(exception: error, stack: stack));
     return true;
   };
+  mapStyle = await StyleReader(
+    uri: 'https://github.com/immich-app/immich/raw/84da9abcbcb853dd853e2995ec944fc6e934da39/server/resources/style-dark.json',
+        // logger: const Logger.console()
+  ).read();
   runApp(App(db: BrussDB()));
 }
 
@@ -69,10 +78,61 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
+class RouteIcon extends StatelessWidget {
+  const RouteIcon({required this.label, required this.color, super.key});
+  final String label;
+  final Color color;
+
+  @override 
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: const BorderRadius.all(Radius.circular(12.0)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        child: Text(label, style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
+      ),
+    );
+  }
+}
+
+class StopTripList extends StatelessWidget {
+  StopTripList({/* required this.stop ,*/ super.key});
+  // final Stop stop;
+  final Future<List<Trip>> _future = BrussApi.request(Trip.fromJson, "map/stop/u/432/trips?time=16:00")
+    .then((value) {
+      return value.data!;
+    });
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder(
+      future: _future,
+      builder: (context, snapshot) {
+        if(snapshot.connectionState != ConnectionState.done) {
+          return CircularProgressIndicator();
+        } else {
+          return Column(
+            children: [
+              for(var t in snapshot.data!)
+                ListTile(
+                  leading: RouteIcon(label: t.route.toString(), color: Colors.indigo),
+                  title: Text(t.headsign),
+                )
+            ],
+          );
+        }
+      }
+    );
+  }
+}
+
 class _HomePageState extends State<HomePage> {
   bool loading = true;
   late Future<void> _future;
-  var selectedIndex = 0;
+  var selectedIndex = 2;
 
   @override
   void initState() {
@@ -102,7 +162,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     return Future.wait(toFetch).then((_) {});
-}
+  }
 
   Widget _loadingPage(BuildContext context) {
     return LoadingPage(db: widget.db);
@@ -116,6 +176,9 @@ class _HomePageState extends State<HomePage> {
         break;
       case 1:
         page = const Text("Settings");
+        break;
+      case 2:
+        page = StopTripList();
         break;
       default:
         throw UnimplementedError('no widget for $selectedIndex');
@@ -135,6 +198,7 @@ class _HomePageState extends State<HomePage> {
             // NavigationRailDestination(icon: Icon(Icons.favorite), label: Text("Favorites")),
             NavigationRailDestination(icon: Icon(Icons.map), label: Text("Map")),
             NavigationRailDestination(icon: Icon(Icons.settings), label: Text("Settings")),
+            NavigationRailDestination(icon: Icon(Icons.science), label: Text("Testing")),
           ],
           selectedIndex: selectedIndex,
           onDestinationSelected: (value) => { 
@@ -199,7 +263,7 @@ class MapPage extends StatelessWidget {
     final markers = <Marker>[];
     db.getStops().then((stops) {
       for(var stop in stops) {
-        if((const Distance()).as(LengthUnit.Kilometer, trento, stop.position) > 10) continue;
+        if((const Distance()).as(LengthUnit.Kilometer, trento, stop.position) > 2) continue;
         markers.add(Marker(
           width: 200,
           height: 50,
@@ -230,11 +294,16 @@ class MapPage extends StatelessWidget {
             rotationThreshold: 100.0,
             enableMultiFingerGestureRace: false,
           ),
+            // interactiveFlags: InteractiveFlag.rotate,
         ),
         children: [
-          TileLayer(
-            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            userAgentPackageName: '',
+          VectorTileLayer(
+            theme: mapStyle.theme,
+            tileProviders: mapStyle.providers,
+            sprites: mapStyle.sprites,
+            layerMode: VectorTileLayerMode.vector,
+            // urlTemplate: 'https://api-l.cofractal.com/v0/maps/vt/overture/{z}/{x}/{y}',
+            // userAgentPackageName: '',
             // Plenty of other options available!
           ),
           MouseRegion(
@@ -334,6 +403,8 @@ class _StopCardState extends State<StopCard> {
                 ),
               ]
             ),
+            // Icon(Icons.directions_bus),
+            StopTripList(),
           ]
         ),
       ),
