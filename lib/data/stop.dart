@@ -3,7 +3,7 @@ import 'package:latlong2/latlong.dart';
 
 import 'area_type.dart';
 import 'bruss_type.dart';
-import 'position_converter.dart';
+import 'converters.dart';
 // import 'package:json_serializable/json_serializable.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'dart:convert';
@@ -43,6 +43,20 @@ class Stop extends BrussType {
 
   factory Stop.fromJson(final Map<String, dynamic> json) => _$StopFromJson(json);
   factory Stop.fromRawJson(final String json) => Stop.fromJson(jsonDecode(json));
+  factory Stop.fromDB(final StopCacheData s) {
+    return Stop(
+      id: s.id,
+      code: s.code,
+      description: s.description,
+      position: s.position,
+      altitude: s.altitude,
+      name: s.name,
+      town: s.town,
+      type: s.type,
+      wheelchairBoarding: s.wheelchairBoarding,
+      isFavorite: s.isFavorite,
+    );
+  }
 
   Map<String, dynamic> toMap() => _$StopToJson(this);
 

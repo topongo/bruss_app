@@ -1,3 +1,4 @@
+import 'package:bruss/data/route.dart';
 import 'package:drift/drift.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -10,10 +11,11 @@ import 'package:bruss/data/stop.dart';
 import 'position_converter.dart';
 import 'area.dart';
 import 'stop.dart';
+import 'route.dart';
 
 part 'database.g.dart';
 
-@DriftDatabase(tables: [AreaCache, StopCache])
+@DriftDatabase(tables: [AreaCache, StopCache, RouteCache])
 class BrussDB extends _$BrussDB {
   BrussDB(): super(impl.connect());
 
@@ -39,20 +41,11 @@ class BrussDB extends _$BrussDB {
     final query = select(stopCache);
 
     final result = await query.get();
-    return result.map((row) {
-      return Stop(
-        id: row.id,
-        code: row.code,
-        description: row.description,
-        position: row.position,
-        altitude: row.altitude,
-        name: row.name,
-        town: row.town,
-        type: row.type,
-        wheelchairBoarding: row.wheelchairBoarding,
-        isFavorite: row.isFavorite,
-      );
-    }).toList();
+    return result.map((row) => Stop.fromDB(row)).toList();
+  }
+
+  Future<Stop> getStop(int id) async {
+    return Stop.fromDB(await (select(stopCache)..where((s) => s.id.equals(id))).getSingle());
   }
 
   Future<void> insertAreas(List<Area> areas) async {
@@ -82,6 +75,23 @@ class BrussDB extends _$BrussDB {
 
   Future<void> updateStop(Stop stop) async {
     await update(stopCache).replace(stop.toCompanion());
+  }
+
+  Future<List<Route>> getRoutes() async {
+    final query = select(routeCache);
+    
+    final result = await query.get();
+    return result.map((row) => Route.fromDB(row)).toList();
+  }
+
+  Future<Route> getRoute(int id) async {
+    return Route.fromDB(await (select(routeCache)..where((r) => r.id.equals(id))).getSingle());
+  }
+
+  Future<void> insertRoutes(List<Route> routes) async {
+    await batch((b) {
+      b.insertAll(routeCache, routes.map((e) => e.toCompanion()));
+    });
   }
 }
 

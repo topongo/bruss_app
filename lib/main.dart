@@ -1,15 +1,14 @@
+import 'package:bruss/data/sample.dart';
 import 'package:bruss/data/stop.dart';
 import 'package:bruss/data/trip.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-// import 'package:path/path.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:vector_map_tiles/vector_map_tiles.dart';
 import 'data/area.dart';
+import 'data/route.dart' as bdroute;
 import 'api.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
@@ -21,12 +20,13 @@ const trento = LatLng(46.0620, 11.1294);
 late Style mapStyle;
 
 void main() async {
-  print("${await getApplicationDocumentsDirectory()}");
   WidgetsFlutterBinding.ensureInitialized();
+  // print("${await getApplicationDocumentsDirectory()}");
   FlutterError.onError = (details) {
     if (kReleaseMode) exit(1);
   };
   PlatformDispatcher.instance.onError = (error, stack) {
+    print("aaaaah");
     FlutterError.presentError(FlutterErrorDetails(exception: error, stack: stack));
     return true;
   };
@@ -99,17 +99,29 @@ class RouteIcon extends StatelessWidget {
 }
 
 class StopTripList extends StatelessWidget {
-  StopTripList({/* required this.stop ,*/ super.key});
-  // final Stop stop;
-  final Future<List<Trip>> _future = BrussApi.request(Trip.fromJson, "map/stop/u/432/trips?time=16:00")
-    .then((value) {
-      return value.data!;
-    });
+  StopTripList({required this.stop, required this.db, super.key});
+  final Stop stop;
+  final BrussDB db;
+  Map<int, bdroute.Route> routes = {};
+  Future<List<Trip>>? _future; 
 
   @override
   Widget build(BuildContext context) {
+    _future ??= BrussApi.request(Trip.fromJson, "map/stop/u/${stop.id}/trips?time=16:00")
+      .then((value) async {
+        final Set<int> neededRoutes = value.data!.map((t) => t.route).toSet();
+        final getters = neededRoutes.map((r) => db.getRoute(r));
+        final it = (await Future.wait(getters)).map((r) => r).iterator;
+        while(it.moveNext()) {
+          routes[it.current.id] = it.current;
+          print(it.current.color);
+        }
+        return value.data!;
+      }); 
+
     return FutureBuilder(
       future: _future,
+
       builder: (context, snapshot) {
         if(snapshot.connectionState != ConnectionState.done) {
           return CircularProgressIndicator();
@@ -118,7 +130,7 @@ class StopTripList extends StatelessWidget {
             children: [
               for(var t in snapshot.data!)
                 ListTile(
-                  leading: RouteIcon(label: t.route.toString(), color: Colors.indigo),
+                  leading: RouteIcon(label: routes[t.route]!.code, color: routes[t.route]!.color),
                   title: Text(t.headsign),
                 )
             ],
@@ -134,6 +146,7 @@ class _HomePageState extends State<HomePage> {
   late Future<void> _future;
   var selectedIndex = 2;
 
+
   @override
   void initState() {
     _future = initDB(widget.db).then((value) {
@@ -147,6 +160,7 @@ class _HomePageState extends State<HomePage> {
   static Future<void> initDB(BrussDB db) async {
     final areas = await db.getAreas();
     final stops = await db.getStops();
+    final routes = await db.getRoutes();
 
     final toFetch = <Future<void>>[];
     if(areas.isEmpty) {
@@ -158,6 +172,12 @@ class _HomePageState extends State<HomePage> {
     if(stops.isEmpty) {
       toFetch.add(BrussApi.request(Stop.fromJson, Stop.endpoint).then((value) {
         return db.insertStops(value.data!);
+      }));
+    }
+
+    if(routes.isEmpty) {
+      toFetch.add(BrussApi.request(bdroute.Route.fromJson, bdroute.Route.endpoint).then((value) {
+        return db.insertRoutes(value.data!);
       }));
     }
 
@@ -178,7 +198,7 @@ class _HomePageState extends State<HomePage> {
         page = const Text("Settings");
         break;
       case 2:
-        page = StopTripList();
+        page = BottomSheet(db: widget.db, selectedEntity: ValueNotifier<DetailsType?>(StopDetails(stop: ApiSampleData.stop, db: widget.db)));
         break;
       default:
         throw UnimplementedError('no widget for $selectedIndex');
@@ -253,8 +273,157 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
+class BottomSheet extends StatefulWidget {
+  const BottomSheet({required this.db, required this.selectedEntity, super.key});
+  final BrussDB db;
+  final ValueNotifier<DetailsType?> selectedEntity;
+
+  @override
+  State<StatefulWidget> createState() => _BottomSheetState();
+}
+
+class _BottomSheetState extends State<BottomSheet> {
+  final _sheet = GlobalKey();
+  final _controller = DraggableScrollableController();
+  static const _initialChildSize = 0.1;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onChanged);
+  }
+
+  void _onChanged() {
+    // if (dontHide) return;
+    // print("collapsing sheet: (dontHide = $dontHide)");
+    // final currentSize = _controller.size;
+    // if (currentSize <= 0.05) _collapse();
+  }
+
+  void _min() => _animateSheet(sheet.snapSizes!.first);
+
+  void _middle() => _animateSheet(sheet.snapSizes![1]);
+
+  void _max() => _animateSheet(sheet.maxChildSize);
+
+  void _hidden() => _animateSheet(0);
+  
+  void _toggle() {
+    if (_controller.size == sheet.maxChildSize) {
+      _min();
+    } else {
+      _max();
+    }
+  }
+
+  void _animateSheet(double size) {
+    _controller.animateTo(
+      size,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  DraggableScrollableSheet get sheet => (_sheet.currentWidget as DraggableScrollableSheet);
+
+  @override
+  void dispose() {
+    super.dispose();
+    _controller.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      key: _sheet,
+      initialChildSize: _initialChildSize,
+      maxChildSize: 1,
+      minChildSize: 0,
+      expand: true,
+      snap: true,
+      snapSizes: const [_initialChildSize, 0.4],
+      controller: _controller,
+      builder: (BuildContext context, ScrollController scrollController) {
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(12),
+              topRight: Radius.circular(12),
+            ),
+          ),
+          child: Padding(
+            padding: EdgeInsets.only(left: 10, right: 10, bottom: 10),
+            child: CustomScrollView(
+              controller: scrollController,
+              slivers: [
+                SliverToBoxAdapter( 
+                  child: Center(
+                    child: GestureDetector(
+                      onTap: _toggle,
+                      behavior: HitTestBehavior.opaque,
+                      child: SizedBox(width: 45, height: 26, child: Center(child: Container( 
+                        decoration: BoxDecoration( 
+                          color: Colors.grey,
+                          borderRadius: BorderRadius.circular(5.0),
+                        ),
+                        height: 6,
+                        width: 25,
+                      ))),
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: ValueListenableBuilder(
+                    valueListenable: widget.selectedEntity, 
+                    builder: (context, value, child) {
+                      if(value == null) {
+                        _hidden();
+                        return const Text("empty");
+                      } else {
+                        _middle();
+                        return value.render(context);
+                      }
+                    }
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+
+abstract class DetailsType {
+  Widget render(BuildContext context);
+}
+
+class StopDetails implements DetailsType {
+  StopDetails({required this.stop, required this.db});
+  final Stop stop;
+  final BrussDB db;
+
+  @override
+  Widget render(BuildContext context) {
+    // return Column(
+    //   crossAxisAlignment: CrossAxisAlignment.start,
+    //   children: [
+    //     Text(stop.name, style: Theme.of(context).textTheme.titleLarge),
+    //
+    //   ]
+    // );
+    return StopCard(stop: stop, db: db);
+  }
+}
+
+
+
 class MapPage extends StatelessWidget {
-  const MapPage({required this.db, super.key});
+  MapPage({required this.db, super.key});
+  final ValueNotifier<DetailsType?> selectedEntity = ValueNotifier<DetailsType?>(null);
 
   final BrussDB db;
 
@@ -275,68 +444,73 @@ class MapPage extends StatelessWidget {
                 Icon(Icons.location_on, color: Colors.red),
               ],
             ),
-            onTap: () => showModalBottomSheet(
-              context: context, 
-              builder: (context) => StopCard(stop: stop, db: db),
-            ), 
+            onTap: () {
+              selectedEntity.value = StopDetails(stop: stop, db: db);
+            },
           ),
         ));
       }
     });
 
-    return Scaffold(
-      body: FlutterMap(
-        options: const MapOptions(
-          initialCenter:  trento,
-          initialZoom: 15.0,
-          interactionOptions: InteractionOptions(
-            // flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
-            rotationThreshold: 100.0,
-            enableMultiFingerGestureRace: false,
-          ),
-            // interactiveFlags: InteractiveFlag.rotate,
-        ),
-        children: [
-          VectorTileLayer(
-            theme: mapStyle.theme,
-            tileProviders: mapStyle.providers,
-            sprites: mapStyle.sprites,
-            layerMode: VectorTileLayerMode.vector,
-            // urlTemplate: 'https://api-l.cofractal.com/v0/maps/vt/overture/{z}/{x}/{y}',
-            // userAgentPackageName: '',
-            // Plenty of other options available!
-          ),
-          MouseRegion(
-            hitTestBehavior: HitTestBehavior.deferToChild,
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: () {
-                
-              },
-              child: MarkerLayer(
-                markers: markers,
-                rotate: true,
-                
-              )
+    return PopScope(
+      onPopInvokedWithResult: (x, y) async {
+        print("aaaah! ($x, $y)");
+      },
+      child: Scaffold(
+        body: FlutterMap(
+          options: const MapOptions(
+            initialCenter:  trento,
+            initialZoom: 15.0,
+            interactionOptions: InteractionOptions(
+              // flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+              rotationThreshold: 100.0,
+              enableMultiFingerGestureRace: false,
             ),
+              // interactiveFlags: InteractiveFlag.rotate,
           ),
-          RichAttributionWidget(
-            animationConfig: const ScaleRAWA(), // Or `FadeRAWA` as is default
-            attributions: [
-              TextSourceAttribution(
-                'OpenStreetMap contributors',
-                onTap: () => launchUrl(Uri.parse('https://openstreetmap.org/copyright')),
+          children: [
+            VectorTileLayer(
+              theme: mapStyle.theme,
+              tileProviders: mapStyle.providers,
+              sprites: mapStyle.sprites,
+              layerMode: VectorTileLayerMode.vector,
+              // urlTemplate: 'https://api-l.cofractal.com/v0/maps/vt/overture/{z}/{x}/{y}',
+              // userAgentPackageName: '',
+              // Plenty of other options available!
+            ),
+            MouseRegion(
+              hitTestBehavior: HitTestBehavior.deferToChild,
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () {
+                  
+                },
+                child: MarkerLayer(
+                  markers: markers,
+                  rotate: true,
+                  
+                )
               ),
-            ],
-          ),
-        ], 
+            ),
+            RichAttributionWidget(
+              animationConfig: const ScaleRAWA(), // Or `FadeRAWA` as is default
+              attributions: [
+                TextSourceAttribution(
+                  'OpenStreetMap contributors',
+                  onTap: () => launchUrl(Uri.parse('https://openstreetmap.org/copyright')),
+                ),
+              ],
+            ),
+            BottomSheet(db: db, selectedEntity: selectedEntity),
+          ], 
+        ),
+        // bottomNavigationBar: BottomNavigationBar(
+        //   items: [
+        //     BottomNavigationBarItem(icon: Icon(Icons.map), label: "Map"),
+        //     BottomNavigationBarItem(icon: Icon(Icons.settings), label: "Settings"),
+        //   ],
+        // ),
       ),
-      // bottomNavigationBar: BottomNavigationBar(
-      //   items: [
-      //     BottomNavigationBarItem(icon: Icon(Icons.map), label: "Map"),
-      //     BottomNavigationBarItem(icon: Icon(Icons.settings), label: "Settings"),
-      //   ],
-      // ),
     );
   }
 }
@@ -388,8 +562,8 @@ class StopCard extends StatefulWidget {
 class _StopCardState extends State<StopCard> {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Padding(
+    print("building StopCard");
+    return Padding(
         padding: const EdgeInsets.all(15.0),
         child: Column(
           mainAxisSize: MainAxisSize.max,
@@ -404,13 +578,9 @@ class _StopCardState extends State<StopCard> {
               ]
             ),
             // Icon(Icons.directions_bus),
-            StopTripList(),
+            StopTripList(stop: widget.stop, db: widget.db),
           ]
         ),
-      ),
-      persistentFooterButtons: [
-        Center(child: Text("ID: ${widget.stop.id}")),
-      ],
     );
   }
 }
