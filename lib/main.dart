@@ -27,6 +27,7 @@ void main() async {
     if (kReleaseMode) exit(1);
   };
   PlatformDispatcher.instance.onError = (error, stack) {
+    // print(stack);
     FlutterError.presentError(FlutterErrorDetails(exception: error, stack: stack));
     return true;
   };
@@ -98,41 +99,10 @@ class RouteIcon extends StatelessWidget {
   }
 }
 
-class StopTripList extends StatelessWidget {
-  StopTripList({/* required this.stop ,*/ super.key});
-  // final Stop stop;
-  final Future<List<Trip>> _future = BrussApi.request(Trip.fromJson, "map/stop/u/432/trips?time=16:00")
-    .then((value) {
-      return value.data!;
-    });
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder(
-      future: _future,
-      builder: (context, snapshot) {
-        if(snapshot.connectionState != ConnectionState.done) {
-          return CircularProgressIndicator();
-        } else {
-          return Column(
-            children: [
-              for(var t in snapshot.data!)
-                ListTile(
-                  leading: RouteIcon(label: t.route.toString(), color: Colors.indigo),
-                  title: Text(t.headsign),
-                )
-            ],
-          );
-        }
-      }
-    );
-  }
-}
-
 class _HomePageState extends State<HomePage> {
   bool loading = true;
   late Future<void> _future;
-  var selectedIndex = 2;
+  var selectedIndex = 0;
 
   @override
   void initState() {
@@ -147,6 +117,7 @@ class _HomePageState extends State<HomePage> {
   static Future<void> initDB(BrussDB db) async {
     final areas = await db.getAreas();
     final stops = await db.getStops();
+    final routes = await db.getRoutes();
 
     final toFetch = <Future<void>>[];
     if(areas.isEmpty) {
@@ -177,9 +148,9 @@ class _HomePageState extends State<HomePage> {
       case 1:
         page = const Text("Settings");
         break;
-      case 2:
-        page = StopTripList();
-        break;
+      // case 2:
+      //   page = StopTripList();
+      //   break;
       default:
         throw UnimplementedError('no widget for $selectedIndex');
     }
@@ -275,9 +246,9 @@ class MapPage extends StatelessWidget {
                 Icon(Icons.location_on, color: Colors.red),
               ],
             ),
-            onTap: () => showModalBottomSheet(
+            onTap: () => showBottomSheet(
               context: context, 
-              builder: (context) => StopCard(stop: stop, db: db),
+              builder: (context) => StopCard(stop: stop),
             ), 
           ),
         ));
@@ -368,9 +339,9 @@ class _LoadingPageState extends State<LoadingPage> {
 }
 
 class StopCard extends StatefulWidget {
-  const StopCard({required this.stop, required this.db, super.key});
+  StopCard({required this.stop, super.key});
   final Stop stop;
-  final BrussDB db;
+  final BrussDB db = BrussDB();
 
   void favorite() {
     if(stop.isFavorite == null || !stop.isFavorite!) {
@@ -391,8 +362,8 @@ class _StopCardState extends State<StopCard> {
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.all(15.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.max,
+        child: ListView(
+          // mainAxisSize: MainAxisSize.max,
           children: [
             Row(
               children: [
@@ -404,7 +375,7 @@ class _StopCardState extends State<StopCard> {
               ]
             ),
             // Icon(Icons.directions_bus),
-            StopTripList(),
+            StopTripList(stop: widget.stop),
           ]
         ),
       ),
@@ -415,3 +386,74 @@ class _StopCardState extends State<StopCard> {
   }
 }
 
+class StopTripList extends StatefulWidget {
+  const StopTripList({required this.stop, super.key});
+  final Stop stop;
+
+  @override
+  State<StatefulWidget> createState() => _StopTripListState();
+}
+
+class _StopTripListState extends State<StopTripList> {
+  Future<List<Trip>>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future ??= BrussApi.request(Trip.fromJson, Trip.endpointStop(widget.stop))
+      .then((value) => value.data!);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder(
+      future: _future,
+      builder: (context, snapshot) {
+        if(snapshot.connectionState != ConnectionState.done) {
+          return const CircularProgressIndicator();
+        } else {
+          return Column(
+            children: [
+              for(var t in snapshot.data!)
+                ListTile(
+                  leading: RouteIcon(label: t.route.toString(), color: Colors.indigo),
+                  title: Text(t.headsign),
+                )
+            ],
+          );
+        }
+      }
+    );
+  }
+}
+
+// class StopTripList extends StatelessWidget {
+//   StopTripList({/* required this.stop ,*/ super.key});
+//   // final Stop stop;
+//   final Future<List<Trip>> _future = BrussApi.request(Trip.fromJson, "map/stop/u/432/trips?time=16:00")
+//     .then((value) {
+//       return value.data!;
+//     });
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return FutureBuilder(
+//       future: _future,
+//       builder: (context, snapshot) {
+//         if(snapshot.connectionState != ConnectionState.done) {
+//           return const CircularProgressIndicator();
+//         } else {
+//           return Column(
+//             children: [
+//               for(var t in snapshot.data!)
+//                 ListTile(
+//                   leading: RouteIcon(label: t.route.toString(), color: Colors.indigo),
+//                   title: Text(t.headsign),
+//                 )
+//             ],
+//           );
+//         }
+//       }
+//     );
+//   }
+// }

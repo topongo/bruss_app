@@ -8,5 +8,16 @@ enum AreaType {
   @JsonValue("e")
   extra;
 
+  @override
+  String toString() {
+    switch(this) {
+      case urban:
+        return "u";
+        break;
+      case extra:
+        return "e";
+        break;
+    }
+  }
   // String get serialize() => this == urban ? "u" : "e";
 }

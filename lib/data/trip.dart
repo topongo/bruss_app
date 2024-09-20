@@ -1,3 +1,5 @@
+import 'package:bruss/data/stop.dart';
+
 import 'area_type.dart';
 import 'bruss_type.dart';
 // import 'package:json_serializable/json_serializable.dart';
@@ -44,6 +46,10 @@ class Trip extends BrussType {
   factory Trip.fromRawJson(final String json) => Trip.fromJson(jsonDecode(json));
 
   Map<String, dynamic> toMap() => _$TripToJson(this);
+
+  static String endpointStop(Stop stop) {
+    return "map/stop/${stop.type}/${stop.id}/trips";
+  }
 
   // @override
   // String toString() {

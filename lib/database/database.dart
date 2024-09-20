@@ -6,16 +6,25 @@ import 'connection.dart' as impl;
 import 'package:bruss/data/area_type.dart';
 import 'package:bruss/data/area.dart';
 import 'package:bruss/data/stop.dart';
+import 'package:bruss/data/route.dart';
 
 import 'position_converter.dart';
 import 'area.dart';
 import 'stop.dart';
+import 'route.dart';
 
 part 'database.g.dart';
 
-@DriftDatabase(tables: [AreaCache, StopCache])
+@DriftDatabase(tables: [AreaCache, StopCache, RouteCache])
 class BrussDB extends _$BrussDB {
-  BrussDB(): super(impl.connect());
+  static BrussDB? _instance;
+
+  factory BrussDB() {
+    return _instance ??= BrussDB._();
+  }
+
+
+  BrussDB._(): super(impl.connect());
 
   // BrussDB.forTesting(DatabaseConnection connection) : super(connection);
 
@@ -51,6 +60,17 @@ class BrussDB extends _$BrussDB {
         type: row.type,
         wheelchairBoarding: row.wheelchairBoarding,
         isFavorite: row.isFavorite,
+      );
+    }).toList();
+  }
+
+  Future<List<Route>> getRoutes() async {
+    final query = select(routeCache);
+
+    final result = await query.get();
+    return result.map((row) {
+      return Route(
+        
       );
     }).toList();
   }
