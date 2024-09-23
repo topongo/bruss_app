@@ -24,7 +24,10 @@ class BrussApi {
           case 200: 
         }
         final List<T> ret = jsonDecode(response.body)
-          .map<T>((json) => construct(json as Map<String, dynamic>))
+          .map<T>((json) {
+            // print("DEBUG: constructing $json");
+            return construct(json as Map<String, dynamic>);
+          })
           .toList();
         print("API: fetched ${ret.length} items from $endpoint");
         return ApiResponse.success(ret);
