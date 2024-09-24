@@ -23,10 +23,13 @@ class Area extends BrussType {
   factory Area.fromRawJson(final String json) => Area.fromJson(jsonDecode(json));
 
   Map<String, dynamic> toMap() => _$AreaToJson(this);
+  // static apiGetAll() => BrussRequest<Area>(Area.endpoint, Area.fromJson);
+  // static apiGetOne(int id) => BrussRequest<Area>("${Area.endpoint}?id=$id", Area.fromJson);
 
   @override
   String toString() {
     return "Area { id: $id, label: \"$label\", type: $type }";
   }  
 }
+
 

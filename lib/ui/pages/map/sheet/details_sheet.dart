@@ -1,16 +1,17 @@
+import 'package:bruss/ui/pages/map/sheet/details.dart';
 import 'package:flutter/material.dart';
 import 'package:bruss/database/database.dart';
 
-class BottomSheet extends StatefulWidget {
-  BottomSheet({required this.selectedEntity, super.key});
+class DetailsSheet extends StatefulWidget {
+  DetailsSheet({required this.selectedEntity, super.key});
   final BrussDB db = BrussDB();
   final ValueNotifier<DetailsType?> selectedEntity;
 
   @override
-  State<StatefulWidget> createState() => _BottomSheetState();
+  State<StatefulWidget> createState() => _DetailsSheetState();
 }
 
-class _BottomSheetState extends State<BottomSheet> {
+class _DetailsSheetState extends State<DetailsSheet> {
   final _sheet = GlobalKey();
   final _controller = DraggableScrollableController();
   static const _initialChildSize = 0.1;
@@ -35,6 +36,10 @@ class _BottomSheetState extends State<BottomSheet> {
   void _max() => _animateSheet(sheet.maxChildSize);
 
   void _hidden() => _animateSheet(0);
+
+  void _offset(double off) {
+    _controller.jumpTo(_controller.pixelsToSize(_controller.sizeToPixels(_controller.size) - off));
+  }
   
   void _toggle() {
     if (_controller.size == sheet.maxChildSize) {
@@ -75,13 +80,13 @@ class _BottomSheetState extends State<BottomSheet> {
         return DecoratedBox(
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.only(
+            borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(12),
               topRight: Radius.circular(12),
             ),
           ),
           child: Padding(
-            padding: EdgeInsets.only(left: 10, right: 10, bottom: 10),
+            padding: const EdgeInsets.only(left: 10, right: 10, bottom: 10),
             child: CustomScrollView(
               controller: scrollController,
               slivers: [
@@ -89,6 +94,15 @@ class _BottomSheetState extends State<BottomSheet> {
                   child: Center(
                     child: GestureDetector(
                       onTap: _toggle,
+                      onVerticalDragStart: (details) {
+                        print("dragging initiated");
+                      },
+                      onVerticalDragUpdate: (details) {
+                        _offset(details.primaryDelta!);
+                      },
+                      onVerticalDragEnd: (details) {
+                        print("dragging ended");
+                      },
                       behavior: HitTestBehavior.opaque,
                       child: SizedBox(width: 45, height: 26, child: Center(child: Container( 
                         decoration: BoxDecoration( 
@@ -105,12 +119,14 @@ class _BottomSheetState extends State<BottomSheet> {
                   child: ValueListenableBuilder(
                     valueListenable: widget.selectedEntity, 
                     builder: (context, value, child) {
+                      print("selected entity: ${widget.selectedEntity}");
                       if(value == null) {
                         _hidden();
                         return const Text("empty");
                       } else {
                         _middle();
-                        return value.render(context);
+                        print("rendering details");
+                        return value;
                       }
                     }
                   ),

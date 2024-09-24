@@ -40,6 +40,7 @@ app.*.symbols
 app.*.map.json
 
 *.g.dart
+/devtools_options.yaml
 
 # android studio will place build artifacts here
 /android/app/debug

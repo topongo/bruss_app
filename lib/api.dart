@@ -14,11 +14,18 @@ class ApiResponse<T> {
   bool get isError => !isSuccess;
 }
 
+class BrussRequest<T extends BrussType> {
+  final String endpoint;
+  final T Function(Map<String, dynamic>) construct;
+
+  BrussRequest(this.endpoint, this.construct);
+}
+
 class BrussApi {
   const BrussApi();
 
-  static Future<ApiResponse<T>> request<T extends BrussType>(T Function(Map<String, dynamic>) construct, String endpoint) async {
-    return http.get(Uri.parse("http://127.0.0.1:8000/api/v1/$endpoint"))
+  static Future<ApiResponse<T>> request<T extends BrussType>(BrussRequest<T> req) async {
+    return http.get(Uri.parse("http://127.0.0.1:8000/api/v1/${req.endpoint}"))
       .then((response) {
         switch(response.statusCode) {
           case 200: 
@@ -26,10 +33,10 @@ class BrussApi {
         final List<T> ret = jsonDecode(response.body)
           .map<T>((json) {
             // print("DEBUG: constructing $json");
-            return construct(json as Map<String, dynamic>);
+            return req.construct(json as Map<String, dynamic>);
           })
           .toList();
-        print("API: fetched ${ret.length} items from $endpoint");
+        print("API: fetched ${ret.length} items from ${req.endpoint}");
         return ApiResponse.success(ret);
         // return ApiResponse.error(500);
       });

@@ -1,3 +1,8 @@
+import 'package:bruss/data/sample.dart';
+import 'package:bruss/ui/pages/loading.dart';
+import 'package:bruss/ui/pages/map/map.dart';
+import 'package:bruss/ui/pages/map/sheet/details.dart';
+import 'package:bruss/ui/pages/map/sheet/details_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:bruss/database/database.dart';
 import 'package:bruss/api.dart';
@@ -57,21 +62,21 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _loadingPage(BuildContext context) {
-    return LoadingPage(db: widget.db);
+    return LoadingPage();
   }
 
   Widget _mainPage(BuildContext context) {
     Widget page;
     switch (selectedIndex) {
       case 0:
-        page = MapPage(db: widget.db);
+        page = MapPage();
         break;
       case 1:
         page = const Text("Settings");
         break;
       case 2:
-        page = BottomSheet(
-          selectedEntity: ValueNotifier<DetailsType?>(StopDetails(stop: ApiSampleData.stop, db: widget.db))
+        page = DetailsSheet(
+          selectedEntity: ValueNotifier<DetailsType?>(StopDetails(stop: ApiSampleData.stop))
         );
         break;
       default:

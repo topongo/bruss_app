@@ -1,9 +1,11 @@
+import 'package:bruss/ui/pages/map/sheet/details.dart';
 import 'package:flutter/material.dart';
 import 'package:bruss/database/database.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:vector_map_tiles/vector_map_tiles.dart';
-import 'bottom_sheet/details.dart';
+import 'package:bruss/ui/pages/map/sheet/details_sheet.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 const trento = LatLng(46.0620, 11.1294);
 late Style mapStyle;
@@ -93,7 +95,7 @@ class MapPage extends StatelessWidget {
                 ),
               ],
             ),
-            BottomSheet(selectedEntity: selectedEntity),
+            DetailsSheet(selectedEntity: selectedEntity),
           ], 
         ),
         // bottomNavigationBar: BottomNavigationBar(
