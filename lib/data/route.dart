@@ -1,3 +1,4 @@
+import 'package:bruss/api.dart';
 import 'package:bruss/database/database.dart';
 import 'package:flutter/material.dart';
 
@@ -55,6 +56,8 @@ class Route extends BrussType {
   }
 
   Map<String, dynamic> toMap() => _$RouteToJson(this);
+
+  static BrussRequest<Route> apiGetAll = BrussRequest(endpoint: Route.endpoint, construct: Route.fromJson);
 
   @override
   String toString() {

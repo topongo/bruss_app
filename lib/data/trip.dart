@@ -1,3 +1,4 @@
+import 'package:bruss/api.dart';
 import 'package:bruss/data/stop.dart';
 
 import 'area_type.dart';
@@ -47,8 +48,18 @@ class Trip extends BrussType {
 
   Map<String, dynamic> toMap() => _$TripToJson(this);
 
-  static String endpointStop(Stop stop) {
-    return "map/stop/${stop.type}/${stop.id}/trips";
+  static BrussRequest<Trip> apiGetByStop(Stop stop) {
+    return BrussRequest(
+      endpoint: "map/stop/${stop.type}/${stop.id}/trips", 
+      construct: Trip.fromJson,
+      // query: "?limit=10",
+    );
+  }
+
+  static int Function(Trip, Trip)? sortByTimesStop(Stop stop) {
+    return (Trip a, Trip b) {
+      return a.times[stop.id]!["arrival"]!.compareTo(b.times[stop.id]!["arrival"]!);
+    };    
   }
 
   // @override

@@ -41,19 +41,19 @@ class _HomePageState extends State<HomePage> {
 
     final toFetch = <Future<void>>[];
     if(areas.isEmpty) {
-      toFetch.add(BrussApi.request(Area.fromJson, Area.endpoint).then((value) {
+      toFetch.add(BrussApi.request(Area.apiGetAll).then((value) {
         return db.insertAreas(value.data!);
       }));
     }
 
     if(stops.isEmpty) {
-      toFetch.add(BrussApi.request(Stop.fromJson, Stop.endpoint).then((value) {
+      toFetch.add(BrussApi.request(Stop.apiGetAll).then((value) {
         return db.insertStops(value.data!);
       }));
     }
 
     if(routes.isEmpty) {
-      toFetch.add(BrussApi.request(br.Route.fromJson, br.Route.endpoint).then((value) {
+      toFetch.add(BrussApi.request(br.Route.apiGetAll).then((value) {
         return db.insertRoutes(value.data!);
       }));
     }

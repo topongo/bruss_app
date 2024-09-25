@@ -1,3 +1,4 @@
+import 'package:bruss/api.dart';
 import 'package:bruss/database/database.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -59,6 +60,8 @@ class Stop extends BrussType {
   }
 
   Map<String, dynamic> toMap() => _$StopToJson(this);
+
+  static BrussRequest<Stop> apiGetAll = BrussRequest(endpoint: Stop.endpoint, construct: Stop.fromJson);
 
   @override
   String toString() {

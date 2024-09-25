@@ -17,15 +17,16 @@ class ApiResponse<T> {
 class BrussRequest<T extends BrussType> {
   final String endpoint;
   final T Function(Map<String, dynamic>) construct;
+  final String? query;
 
-  BrussRequest(this.endpoint, this.construct);
+  BrussRequest({required this.endpoint, required this.construct, this.query});
 }
 
 class BrussApi {
   const BrussApi();
 
   static Future<ApiResponse<T>> request<T extends BrussType>(BrussRequest<T> req) async {
-    return http.get(Uri.parse("http://127.0.0.1:8000/api/v1/${req.endpoint}"))
+    return http.get(Uri.parse("http://127.0.0.1:8000/api/v1/${req.endpoint}${req.query ?? ""}"))
       .then((response) {
         switch(response.statusCode) {
           case 200: 

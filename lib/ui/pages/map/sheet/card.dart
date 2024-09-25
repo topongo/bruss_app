@@ -3,15 +3,14 @@ import 'package:bruss/data/route.dart' as br;
 import 'package:bruss/data/stop.dart';
 import 'package:bruss/data/trip.dart';
 import 'package:bruss/database/database.dart';
-import 'package:bruss/ui/pages/map/bottom_sheet/route_icon.dart';
-import 'package:bruss/ui/pages/map/sheet/stop_trip_list.dart';
+import 'package:bruss/ui/pages/map/sheet/route_icon.dart';
 import 'package:flutter/material.dart';
 
 
 abstract class DetailsCard extends StatefulWidget {
   DetailsCard({super.key});
   final BrussDB db = BrussDB();
-  final Future<TripBundle> trips;
+  final Future<TripBundle>? trips = null;
   
   void favorite();
   String title();
@@ -27,25 +26,24 @@ class TripBundle {
   Map<int, br.Route> routes = {};
   List<Trip> trips;
 
-  Future<TripBundle> fromRequest(BrussRequest<Trip> request, int Function(Trip, Trip)? sorter) {
+  static Future<TripBundle> fromRequest(BrussRequest<Trip> request, int Function(Trip, Trip)? sorter) {
     return BrussApi.request(request)
-      .then((value) async {
-        final Set<int> neededRoutes = value.data!.map((t) => t.route).toSet();
+      .then((trips) async {
+        final Set<int> neededRoutes = trips.data!.map((t) => t.route).toSet();
         final getters = neededRoutes.map((r) => BrussDB().getRoute(r));
         final it = (await Future.wait(getters)).map((r) => r).iterator;
         Map<int, br.Route> routes = {};
         while(it.moveNext()) {
           routes[it.current.id] = it.current;
         }
-        value.data!.sort(sorter);
-        return TripBundle(routes: routes, trips: trips);
+        trips.data!.sort(sorter);
+        return TripBundle(routes: routes, trips: trips.data!);
       });
   }
 }
 
 class StopCard extends DetailsCard {
   Map<int, br.Route> routes = {};
-  Future<List<Trip>> _future = TripBundle.fromRequest(BrussRequest(Trip.endpointStop(stop)));
 
   StopCard({required this.stop, super.key});
   final Stop stop;
@@ -64,7 +62,9 @@ class StopCard extends DetailsCard {
   bool isFavorite() => stop.isFavorite ?? false;
 
   @override
-  Future<List<Trip>>? future() => _future;
+  Future<TripBundle>? future() {
+    return TripBundle.fromRequest(Trip.apiGetByStop(stop), Trip.sortByTimesStop(stop));
+  }
 
   @override
   String title() => stop.name;
@@ -79,9 +79,11 @@ class _DetailsCardState extends State<DetailsCard> {
         if(snapshot.connectionState != ConnectionState.done) {
           return const CircularProgressIndicator();
         } else {
+          final routes = snapshot.data!.routes;
+          final trips = snapshot.data!.trips;
           return Column(
             children: [
-              for(var t in snapshot.data!)
+              for(var t in trips)
                 ListTile(
                   leading: RouteIcon(label: routes[t.route]!.code, color: routes[t.route]!.color),
                   title: Text(t.headsign),
@@ -90,6 +92,7 @@ class _DetailsCardState extends State<DetailsCard> {
           );
         }
       }
+    );
 
     // return Padding(
     //     padding: const EdgeInsets.all(15.0),

@@ -6,25 +6,25 @@ import 'package:bruss/database/database.dart';
 import 'package:bruss/ui/pages/map/sheet/route_icon.dart';
 import 'package:flutter/material.dart';
 
-class TripList extends StatelessWidget {
-  TripList({required this.trips, super.key});
-  final List<Trip> trips;
-
-  @override
-  Widget build(BuildContext context) {
-    _future ??= BrussApi.request(Trip.fromJson, "map/stop/u/${stop.id}/trips?time=16:00")
-      .then((value) async {
-        
-      }); 
-
-    return FutureBuilder(
-      future: _future,
-      builder: (context, snapshot) {
-        
-      }
-    );
-  }
-}
+// class TripList extends StatelessWidget {
+//   TripList({required this.trips, super.key});
+//   final List<Trip> trips;
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     _future ??= BrussApi.request(Trip.fromJson, "map/stop/u/${stop.id}/trips?time=16:00")
+//       .then((value) async {
+//         
+//       }); 
+//
+//     return FutureBuilder(
+//       future: _future,
+//       builder: (context, snapshot) {
+//         
+//       }
+//     );
+//   }
+// }
 
 // class StopTripList extends StatefulWidget {
 //   const StopTripList({required this.stop, super.key});
