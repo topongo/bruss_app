@@ -1,3 +1,4 @@
+import 'package:bruss/settings/init.dart';
 import 'package:http/http.dart' as http;
 import 'data/bruss_type.dart';
 import 'dart:convert';
@@ -26,7 +27,8 @@ class BrussApi {
   const BrussApi();
 
   static Future<ApiResponse<T>> request<T extends BrussType>(BrussRequest<T> req) async {
-    return http.get(Uri.parse("http://127.0.0.1:8000/api/v1/${req.endpoint}${req.query ?? ""}"))
+    final apiUrl = await Settings().getApiUrl();
+    return http.get(Uri.parse("$apiUrl${req.endpoint}${req.query ?? ""}"))
       .then((response) {
         switch(response.statusCode) {
           case 200: 
@@ -40,11 +42,12 @@ class BrussApi {
         print("API: fetched ${ret.length} items from ${req.endpoint}");
         return ApiResponse.success(ret);
         // return ApiResponse.error(500);
-      });
-      // })
-      // .catchError((error) {
-      //   return Future(ApiResponse.error(500));
       // });
+      })
+      .catchError((error) {
+        print("API: error fetching ${req.endpoint}: $error");
+        return ApiResponse<T>.error(500);
+      });
 
     // return construct("""{"id": 505, "label": "Urbano Trento", "type": "u"}""");
     // return construct(utf8.decode(response.bodyBytes));

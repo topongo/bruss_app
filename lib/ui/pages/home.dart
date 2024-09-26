@@ -3,6 +3,7 @@ import 'package:bruss/ui/pages/loading.dart';
 import 'package:bruss/ui/pages/map/map.dart';
 import 'package:bruss/ui/pages/map/sheet/details.dart';
 import 'package:bruss/ui/pages/map/sheet/details_sheet.dart';
+import 'package:bruss/ui/pages/settings.dart';
 import 'package:flutter/material.dart';
 import 'package:bruss/database/database.dart';
 import 'package:bruss/api.dart';
@@ -72,7 +73,7 @@ class _HomePageState extends State<HomePage> {
         page = MapPage();
         break;
       case 1:
-        page = const Text("Settings");
+        page = SettingsPage();
         break;
       case 2:
         page = DetailsSheet(
