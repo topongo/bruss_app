@@ -12,8 +12,7 @@ import 'package:bruss/data/stop.dart';
 import 'package:bruss/data/route.dart' as br;
 
 class HomePage extends StatefulWidget {
-  HomePage({super.key});
-  final BrussDB db = BrussDB();
+  const HomePage({super.key});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -24,18 +23,26 @@ class _HomePageState extends State<HomePage> {
   late Future<void> _future;
   var selectedIndex = 0;
 
-
   @override
   void initState() {
-    _future = initDB(widget.db).then((value) {
-      setState(() {
-        loading = false; 
-      });
-    });
+    _future = checkApiConnection().then(
+      (_) => initDB().then(
+        (_) => setState(() { loading = false; })
+      )
+    );
     super.initState();
   }
 
-  static Future<void> initDB(BrussDB db) async {
+  static Future<void> checkApiConnection() async {
+    BrussApi.request(BrussRequest.status).then((value) {
+      if(value.isError) {
+        throw ApiException("API connection failed");
+      }
+    });
+  } 
+
+  static Future<void> initDB() async {
+    final db = BrussDB();
     final areas = await db.getAreas();
     final stops = await db.getStops();
     final routes = await db.getRoutes();
@@ -76,9 +83,7 @@ class _HomePageState extends State<HomePage> {
         page = SettingsPage();
         break;
       case 2:
-        page = DetailsSheet(
-          selectedEntity: ValueNotifier<DetailsType?>(StopDetails(stop: ApiSampleData.stop))
-        );
+        page = Placeholder();
         break;
       default:
         throw UnimplementedError('no widget for $selectedIndex');
@@ -129,7 +134,7 @@ class _HomePageState extends State<HomePage> {
         Text(stack.toString()),
         const SizedBox(height: 10),
         ElevatedButton(
-          onPressed: () { setState(() { _future = initDB(widget.db); }); },
+          onPressed: () { initState(); },
           child: const Text("Retry"),
         ),
       ]))

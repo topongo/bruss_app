@@ -11,18 +11,22 @@ class Settings {
     return _instance;
   }
 
-  Future<String> getApiUrl() async {
-    final prefs = await this.prefs;
-    var url = prefs.getString("api.url") ?? DefaultSettings.defaults["api_url"];
-    if (!url.endsWith("/")) {
-      url += "/";
+  static Record<String, String> splitKey(String key) {
+    final List<String> path = key.split(".");
+    if (path.length != 2) {
+      throw Exception("Invalid key format: $key");
     }
-    return url;
+    return Record(path[0], path[1]);
   }
 
   Future<void> setApiUrl(String url) async {
     final prefs = await this.prefs;
     prefs.setString("api.url", url);
+  }
+
+  Future<String> get(String key) async {
+    final prefs = await this.prefs;
+    return prefs.getString(key) ?? DefaultSettings.get(key);
   }
 
   Future<Map<String, dynamic>> getAll() async {
@@ -50,6 +54,15 @@ class DefaultSettings {
       "_title": "API",
     },
   };
+
+  static String get(String key) {
+    final List<String> path = key.split(".");
+    final val = DefaultSettings.defaults[key];
+    if (val == null) {
+      throw Exception("Setting with key $key doesn't exists");
+    }
+    return val;
+  }
 }
 
 class SettingsDescription {

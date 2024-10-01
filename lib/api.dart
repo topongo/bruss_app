@@ -20,14 +20,31 @@ class BrussRequest<T extends BrussType> {
   final T Function(Map<String, dynamic>) construct;
   final String? query;
 
-  BrussRequest({required this.endpoint, required this.construct, this.query});
+  const BrussRequest({required this.endpoint, required this.construct, this.query});
+
+  static BrussRequest status = BrussRequest(
+    endpoint: "/status",
+    construct: (json) => BrussTypeMock.instance,
+  );
+}
+
+class BrussTypeMock extends BrussType {
+  static final BrussTypeMock instance = BrussTypeMock();
+}
+
+class ApiException implements Exception {
+  final String message;
+  ApiException(this.message);
+
+  @override
+  String toString() => "API Exception: $message";
 }
 
 class BrussApi {
   const BrussApi();
 
   static Future<ApiResponse<T>> request<T extends BrussType>(BrussRequest<T> req) async {
-    final apiUrl = await Settings().getApiUrl();
+    final apiUrl = await Settings().get("api.url");
     return http.get(Uri.parse("$apiUrl${req.endpoint}${req.query ?? ""}"))
       .then((response) {
         switch(response.statusCode) {

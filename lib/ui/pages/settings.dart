@@ -1,6 +1,5 @@
 import 'package:bruss/settings/init.dart';
 import 'package:flutter/material.dart';
-import 'package:bruss/utils/extensions.dart';
 
 String capitalize(String s) => s[0].toUpperCase() + s.substring(1);
 
@@ -21,26 +20,50 @@ class _SettingsPageState extends State<SettingsPage> {
           return const CircularProgressIndicator();
         } else {
           final settings = snapshot.data!;
-          print(settings.values);
-          return ListView(
-            children: [
-              for(var category in settings.values)
-                ...[
-                  ListTile(
-                    title: Text("${category["_title"]} Settings"),
-                  ),
-                  for(var setting in category.entries.where((entry) => !entry.key.startsWith("_")))
-                    OverflowBar(
-                      onTap: () {
-                        print("Tapped ${setting.key}");
-                      },
-                      child: ListTile(
-                      title: Text(capitalize(setting.key)),
-                      subtitle: Text(SettingsDescription.get(category["_title"], setting.key)),
-                    ),          
-                  Divider(height: 0),
-                ],
-              ]
+          return Scaffold(
+            body: ListView(
+              children: [
+                for(var cat in settings.entries)
+                  ...[
+                    ListTile( 
+                      subtitle: Text(capitalize(cat.value["_title"])),
+                    ),
+                    for(var setting in cat.value.entries.where((e) => e.key != "_title"))
+                      ListTile(
+                        title: Text(capitalize(setting.key)),
+                        subtitle: Text(setting.value),
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return Dialog(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text("Edit value ${setting.key}"),
+                                      TextField(
+                                        textCapitalization: TextCapitalization.none,
+                                        autocorrect: false,
+                                        autofocus: true,
+                                        keyboardType: TextInputType.url,
+                                        controller: TextEditingController(
+                                          text: setting.value,
+                                        ),
+                                      ), 
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                        trailing: null,
+                      ),
+                  ],
+              ],
+            ),
           );
         }
       }

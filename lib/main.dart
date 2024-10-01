@@ -10,7 +10,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // print("${await getApplicationDocumentsDirectory()}");
   FlutterError.onError = (details) {
-    if (kReleaseMode) exit(1);
+    // if (kReleaseMode) 
+    print(details);
   };
   PlatformDispatcher.instance.onError = (error, stack) {
     print(stack);
