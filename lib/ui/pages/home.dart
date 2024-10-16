@@ -1,4 +1,5 @@
 import 'package:bruss/data/sample.dart';
+import 'package:bruss/error.dart';
 import 'package:bruss/ui/pages/loading.dart';
 import 'package:bruss/ui/pages/map/map.dart';
 import 'package:bruss/ui/pages/map/sheet/details.dart';
@@ -34,9 +35,13 @@ class _HomePageState extends State<HomePage> {
   }
 
   static Future<void> checkApiConnection() async {
-    BrussApi.request(BrussRequest.status).then((value) {
+    BrussApi.request(BrussRequest.status).then((value) async {
       if(value.isError) {
-        throw ApiException("API connection failed");
+        throw ApiException.fromResponse(value);
+      }
+    }).catchError((error, stack) {
+      if (error is ApiException) {
+        ErrorHandler.onPlatformError(error.attachRetry(checkApiConnection), stack);
       }
     });
   } 
@@ -143,6 +148,7 @@ class _HomePageState extends State<HomePage> {
   
   @override
   Widget build(BuildContext context) {
+    ErrorHandler.registerContext(context);
     return FutureBuilder(
       future: _future,
       builder: (context, snapshot) {

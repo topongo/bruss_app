@@ -19,12 +19,14 @@ class BrussRequest<T extends BrussType> {
   final String endpoint;
   final T Function(Map<String, dynamic>) construct;
   final String? query;
+  final dynamic Function(String raw)? deserializer;
 
-  const BrussRequest({required this.endpoint, required this.construct, this.query});
+  const BrussRequest({required this.endpoint, required this.construct, this.query, this.deserializer});
 
   static BrussRequest status = BrussRequest(
-    endpoint: "/status",
-    construct: (json) => BrussTypeMock.instance,
+    endpoint: "",
+    construct: (_) => BrussTypeMock.instance,
+    deserializer: (_) => [],
   );
 }
 
@@ -32,12 +34,21 @@ class BrussTypeMock extends BrussType {
   static final BrussTypeMock instance = BrussTypeMock();
 }
 
-class ApiException implements Exception {
-  final String message;
-  ApiException(this.message);
+class ApiException<T> implements Exception {
+  final Object error;
+  final Future<void> Function()? retry;
+  ApiException(this.error, {this.retry});
 
   @override
-  String toString() => "API Exception: $message";
+  String toString() => "API Exception: $error";
+
+  ApiException<T> attachRetry(Future<void> Function() retry) {
+    return ApiException(error, retry: retry);
+  }
+
+  factory ApiException.fromResponse(ApiResponse<T> response) {
+    return ApiException("API returned status code ${response.statusCode}");
+  }
 }
 
 class BrussApi {
@@ -45,14 +56,20 @@ class BrussApi {
 
   static Future<ApiResponse<T>> request<T extends BrussType>(BrussRequest<T> req) async {
     final apiUrl = await Settings().get("api.url");
-    return http.get(Uri.parse("$apiUrl${req.endpoint}${req.query ?? ""}"))
+    final url = Uri.parse("$apiUrl${req.endpoint}${req.query ?? ""}");
+    print("API: fetching from $url");
+    return http.get(url)
       .then((response) {
         switch(response.statusCode) {
           case 200: 
         }
-        final List<T> ret = jsonDecode(response.body)
+        if (req.deserializer != null) {
+          print("DEBUG: using custom deserializer");
+        }
+        final deserializer = req.deserializer ?? jsonDecode;
+        final List<T> ret = deserializer(response.body)
           .map<T>((json) {
-            // print("DEBUG: constructing $json");
+            print("DEBUG: constructing $json");
             return req.construct(json as Map<String, dynamic>);
           })
           .toList();
@@ -62,8 +79,8 @@ class BrussApi {
       // });
       })
       .catchError((error) {
-        print("API: error fetching ${req.endpoint}: $error");
-        return ApiResponse<T>.error(500);
+        // finite set of errors, if not, throw the error wrapped in ApiException
+        throw ApiException(error);
       });
 
     // return construct("""{"id": 505, "label": "Urbano Trento", "type": "u"}""");

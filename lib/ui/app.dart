@@ -1,4 +1,5 @@
 import 'package:bruss/database/database.dart';
+import 'package:bruss/error.dart';
 import 'package:bruss/ui/pages/home.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';

@@ -11,66 +11,104 @@ class Settings {
     return _instance;
   }
 
-  static Record<String, String> splitKey(String key) {
+  static (String, String) splitKey(String key) {
     final List<String> path = key.split(".");
     if (path.length != 2) {
       throw Exception("Invalid key format: $key");
     }
-    return Record(path[0], path[1]);
-  }
-
-  Future<void> setApiUrl(String url) async {
-    final prefs = await this.prefs;
-    prefs.setString("api.url", url);
+    return (path[0], path[1]);
   }
 
   Future<String> get(String key) async {
     final prefs = await this.prefs;
-    return prefs.getString(key) ?? DefaultSettings.get(key);
+    return prefs.getString(key) ?? SettingsMeta.get(key);
   }
 
   Future<Map<String, dynamic>> getAll() async {
     final prefs = await this.prefs;
-    final Map<String, dynamic> acc = DefaultSettings.defaults;
-    prefs.getKeys().map((key) async {
+    final Map<String, dynamic> acc = {};
+    for (final e in SettingsMeta.defaults.entries) {
+      final keys = Settings.splitKey(e.key);
+      if (!acc.containsKey(keys.$1)) {
+        acc[keys.$1] = {};
+      }
+      if (!acc[keys.$1].containsKey(keys.$2)) {
+        acc[keys.$1][keys.$2] = e.value;
+      }
+    }
+    for(final key in prefs.getKeys()) {
       final List<String> path = key.split(".");
       if (path.length != 2) {
-        return;
+        continue;
       } else {
         if (!acc.containsKey(path[0])) {
           acc[path[0]] = {};
         }
         acc[path[0]][path[1]] = prefs.get(key);
       }
-    });
+    }
     return acc;
+  }
+
+  Future<String> set(String key, String value) async {
+    final prefs = await this.prefs;
+    final checked = SettingsMeta.check(key, value);
+    prefs.setString(key, checked);
+    return checked;
   }
 }
 
-class DefaultSettings {
-  static final Map<String, dynamic> defaults = {
-    "api": {
-      "url": "http://127.0.0.1:8000/api/v1/",
-      "_title": "API",
+class SettingsMeta {
+  static final Map<String, String> defaults = {
+    "api.url": "http://127.0.0.1:8000/api/v1/",
+  };
+
+  static final Map<String, String> titles = {
+    "api": "API",
+  };
+
+  static final Map<String, String> descriptions = {
+    "api.url": "DEV: Url of the API server to use",
+  };
+
+  static final Map<String, String Function(String)> checkers = {
+    "api.url": (url) {
+      if (!url.startsWith("http")) {
+        throw Exception("Invalid url format");
+      }
+      if (!url.endsWith("/")) {
+        url += "/";
+      }
+      return url;
     },
   };
 
+  static String title(String sub) {
+    return SettingsMeta.titles[sub] ?? "Unknown";
+  }
+
   static String get(String key) {
-    final List<String> path = key.split(".");
-    final val = DefaultSettings.defaults[key];
+    final (String, String) keys = Settings.splitKey(key);
+    if (keys.$1.startsWith("_")) {
+      throw Exception("Setting with key $key is private");
+    }
+    final val = SettingsMeta.defaults[key];
     if (val == null) {
       throw Exception("Setting with key $key doesn't exists");
     }
     return val;
   }
-}
 
-class SettingsDescription {
-  static final Map<String, String> descriptions = {
-    "api.url": "DEV: Url of the API server to use",
-  };
+  static String check(String key, String value) {
+    final check = SettingsMeta.checkers[key];
+    if (check != null) {
+      return check(value);
+    }
+    print("!!!WARNING!!!: No check for $key");
+    return value;
+  }
 
-  static String get(String category, String setting) {
-    return SettingsDescription.descriptions["$category.$setting"] ?? "DESCRIPTION NOT FOUND";
+  static String description(String key) {
+    return SettingsMeta.descriptions[key] ?? "";
   }
 }
