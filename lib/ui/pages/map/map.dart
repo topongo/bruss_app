@@ -10,9 +10,17 @@ import 'package:url_launcher/url_launcher.dart';
 const trento = LatLng(46.0620, 11.1294);
 late Style mapStyle;
 
-class MapPage extends StatelessWidget {
+class MapPage extends StatefulWidget {
   MapPage({super.key});
+  final Map<int, Marker> markers = {};
+
+  @override
+  State<MapPage> createState() => _MapPageState();
+}
+
+class _MapPageState extends State<MapPage> {
   final ValueNotifier<DetailsType?> selectedEntity = ValueNotifier<DetailsType?>(null);
+
   final BrussDB db = BrussDB();
 
   @override
@@ -38,9 +46,11 @@ class MapPage extends StatelessWidget {
             //   builder: (context) => StopCard(stop: stop),
             // ), 
 	    // newer version
-           onTap: () {
-             selectedEntity.value = StopDetails(stop: stop);
-           },
+            onTap: () {
+              setState(() {
+                selectedEntity.value = StopDetails(stop: stop);
+              });
+            },
           ),
         ));
       }

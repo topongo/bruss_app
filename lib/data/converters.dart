@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -31,3 +32,22 @@ class ColorConverter extends JsonConverter<Color, String> {
   }
 }
 
+class DateTimeConverter extends JsonConverter<DateTime, String> {
+  const DateTimeConverter();
+
+  @override
+  DateTime fromJson(String json) {
+    final parts = json.split(":");
+    return DateTime.fromMillisecondsSinceEpoch(0).add(Duration(
+      hours: int.parse(parts[0]),
+      minutes: int.parse(parts[1]),
+      seconds: int.parse(parts[2]),
+    ));
+  }
+
+  @override
+  String toJson(DateTime object) {
+    final fmt = DateFormat("HH:mm:ss");
+    return fmt.format(object);
+  }
+}

@@ -88,7 +88,18 @@ class _HomePageState extends State<HomePage> {
         page = SettingsPage();
         break;
       case 2:
-        page = Placeholder();
+        page = FutureBuilder(
+          future: BrussDB().getStop(403).then((value) {
+            return StopDetails(stop: value);
+          }),
+          builder: (ctx, snap) {
+            if(snap.connectionState == ConnectionState.done) {
+              return snap.data!;
+            } else  {
+              return const CircularProgressIndicator();
+            }
+          }
+        );
         break;
       default:
         throw UnimplementedError('no widget for $selectedIndex');

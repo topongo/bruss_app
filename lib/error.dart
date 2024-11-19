@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:bruss/api.dart';
 import 'package:bruss/settings/init.dart';
 import 'package:bruss/ui/pages/settings.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -37,6 +38,14 @@ class ErrorHandler {
   }
 
   static void onPlatformError(Object error, StackTrace stack) {
+    if (kDebugMode) {
+      print("====== onPlatformErrro - error ======");
+      print(error);
+      print("====== onPlatformError - stack ======");
+      print(stack);
+      print("=====================================");
+    }
+
     _completer.future.then((_) {
       if (error is ApiException) {
         showDialog(
@@ -53,7 +62,7 @@ class ErrorHandler {
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.onSecondary,
                     ),
-                    child: Text(stack.toString()),
+                    child: Text(stack.toString() + "\nCaused by:\n" + error.stack.toString()),
                   ),
                   const Text("Please check your internet connection or change the API URL using the button below. The app won't work without a valid API connection."),
                 ],
@@ -81,13 +90,17 @@ class ErrorHandler {
                   },
                   child: const Text("Edit API"),
                 ),
-                ElevatedButton(
+                if  (error.retry != null) ElevatedButton(
                   child: const Text("Retry"),
                   onPressed: () {
                     error.retry!();
                     Navigator.of(context).pop();
                   }
                 ),
+                // ElevatedButton(
+                //   child: const Text("Restart"),
+                //   onPressed: () 
+                // )
                 ElevatedButton(
                   onPressed: () => SystemNavigator.pop(),
                   child: const Text("Exit"),

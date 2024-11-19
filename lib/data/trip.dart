@@ -1,5 +1,8 @@
 import 'package:bruss/api.dart';
+import 'package:bruss/data/converters.dart';
 import 'package:bruss/data/stop.dart';
+import 'package:bruss/data/trip_updates.dart';
+import 'package:flutter/material.dart';
 
 import 'area_type.dart';
 import 'bruss_type.dart';
@@ -11,17 +14,33 @@ import 'dart:convert';
 part 'trip.g.dart';
 
 @JsonSerializable()
+class TripTime {
+  
+  @DateTimeConverter()
+  final DateTime arrival;
+  @DateTimeConverter()
+  final DateTime departure;
+
+  TripTime({required this.arrival, required this.departure});
+
+  factory TripTime.fromJson(final Map<String, dynamic> json) => _$TripTimeFromJson(json);
+  factory TripTime.fromRawJson(final String json) => TripTime.fromJson(jsonDecode(json));
+
+  Map<String, dynamic> toMap() => _$TripTimeToJson(this);
+}
+
+@JsonSerializable()
 class Trip extends BrussType {
   final String id;
-  final int delay;
+  int delay;
   final String direction;
-  final int? nextStop;
-  final int? lastStop;
-  final int? busId;
+  int? nextStop;
+  int? lastStop;
+  int? busId;
   final int route;
   final String headsign;
   final String path;
-  final Map<int, Map<String, String>> times;
+  final Map<int, TripTime> times;
   final AreaType type;
 
   final bool? isFavorite;
@@ -58,27 +77,14 @@ class Trip extends BrussType {
 
   static int Function(Trip, Trip)? sortByTimesStop(Stop stop) {
     return (Trip a, Trip b) {
-      return a.times[stop.id]!["arrival"]!.compareTo(b.times[stop.id]!["arrival"]!);
+      return a.times[stop.id]!.arrival.compareTo(b.times[stop.id]!.arrival);
     };    
   }
 
-  // @override
-  // String toString() {
-    // return "Trip { id: $id, code: \"$code\", description: \"$description\", position: $position, altitude: $altitude, name: \"$name\", town: \"$town\", type: $type, wheelchairBoarding: $wheelchairBoarding }";
-  // }
-
-  // TripCacheCompanion toCompanion() {
-  //   return TripCacheCompanion(
-  //     id: Value(id),
-  //     code: Value(code),
-  //     description: Value(description),
-  //     position: Value(position),
-  //     altitude: Value(altitude),
-  //     name: Value(name),
-  //     town: Value(town),
-  //     type: Value(type),
-  //     wheelchairBoarding: Value(wheelchairBoarding),
-  //     isFavorite: Value(isFavorite),
-  //   );
-  // }
+  void update(TripUpdates other) {
+    delay = other.delay;
+    nextStop = other.nextStop;
+    lastStop = other.lastStop;
+    busId = other.busId;
+  }
 }

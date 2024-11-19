@@ -9,7 +9,9 @@ class RouteIcon extends StatelessWidget {
 
   @override 
   Widget build(BuildContext context) {
-    return DecoratedBox(
+    return Container(
+      height: 40,
+      width: 40,
       decoration: BoxDecoration(
         color: color,
         borderRadius: const BorderRadius.all(Radius.circular(12.0)),
