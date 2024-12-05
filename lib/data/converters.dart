@@ -1,7 +1,11 @@
+import 'dart:collection';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:latlong2/latlong.dart';
+
+import 'trip.dart';
 
 class PositionConverter extends JsonConverter<LatLng, List<dynamic>> {
   const PositionConverter();
@@ -49,5 +53,19 @@ class DateTimeConverter extends JsonConverter<DateTime, String> {
   String toJson(DateTime object) {
     final fmt = DateFormat("HH:mm:ss");
     return fmt.format(object);
+  }
+}
+
+class TimesConverter extends JsonConverter<LinkedHashMap<int, TripTime>, Map<String, dynamic>> {
+  const TimesConverter();
+
+  @override
+  LinkedHashMap<int, TripTime> fromJson(Map<String, dynamic> json) {
+    return LinkedHashMap.from(json.map((key, value) => MapEntry(int.parse(key), TripTime.fromJson(value))));
+  }
+
+  @override
+  Map<String, dynamic> toJson(LinkedHashMap<int, TripTime> object) {
+    return object.map((key, value) => MapEntry(key.toString(), value));
   }
 }

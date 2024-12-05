@@ -1,48 +1,55 @@
 import 'dart:collection';
 
 import 'package:bruss/api.dart';
+import 'package:bruss/data/direction.dart';
 import 'package:bruss/data/route.dart' as br;
 import 'package:bruss/data/stop.dart';
 import 'package:bruss/data/trip.dart';
 import 'package:bruss/data/trip_updates.dart';
 import 'package:bruss/database/database.dart';
-import 'package:bruss/error.dart';
+import 'package:bruss/ui/pages/map/map.dart';
+import 'package:bruss/ui/pages/map/sheet/details.dart';
 import 'package:bruss/ui/pages/map/sheet/route_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import 'trip_details.dart';
+import '../../../../data/area_type.dart';
+import 'stop_trip_list.dart';
+import 'route_trip_list.dart';
 
 
 abstract class DetailsCard extends StatefulWidget {
-  DetailsCard({super.key});
+  DetailsCard({super.key, required this.sizeController});
   final BrussDB db = BrussDB();
-  final trips = TripBundle(routes: {}, trips: LinkedHashMap<String, Trip>());
+  final trips = TripBundle(routes: {}, stops: {}, trips: LinkedHashMap<String, Trip>());
+  final ValueNotifier<double> sizeController;
+  DateTime referenceTime = DateTime.now();
   Key attemptKey = UniqueKey();
   
   Stop? stopReference();
   
   void favorite();
-  String title();
+  Widget title();
   bool isFavorite();
   Future<void> loadMore();
   bool hasMore() => trips.hasMore();
+  Widget cardContent(BuildContext context, bool isLoading, int total, Function() loadMore);
 
   @override
   State<StatefulWidget> createState() => _DetailsCardState();
 }
 
 class TripBundle {
-  TripBundle({required this.routes, required this.trips, this.total});
+  TripBundle({required this.routes, required this.stops, required this.trips, this.total});
   Map<int, br.Route> routes = {};
+  Map<(int, AreaType), Stop> stops = {};
   LinkedHashMap<String, Trip> trips;
   int? total;
-  bool hasMore() { print(total); return total == null || trips.length < total!; }
+  bool hasMore() { return total == null || trips.length < total!; }
 
-  static Future<TripBundle> fromRequest(BrussRequest<Trip> request, int Function(Trip, Trip)? sorter) {
+  static Future<TripBundle> fromRequest(BrussRequest<Trip> request) {
     return BrussApi.request(request)
       .then((trips) async {
-        print("Got response from API, total count is ${trips.total}");
         final Set<int> neededRoutes = trips.data!.map((t) => t.route).toSet();
         final getters = neededRoutes.map((r) => BrussDB().getRoute(r));
         final it = (await Future.wait(getters)).map((r) => r).iterator;
@@ -50,15 +57,19 @@ class TripBundle {
         while(it.moveNext()) {
           routes[it.current.id] = it.current;
         }
-        // done by the API by now
-        // trips.data!.sort(sorter);
         final tripsH = LinkedHashMap<String, Trip>.fromIterable(trips.data!, key: (t) => t.id, value: (t) => t);
-        return TripBundle(routes: routes, trips: tripsH, total: trips.total);
+        final stopIds = trips.data!.map((t) => t.times.keys).expand((e) => e).toSet();
+        final stops = {
+          for(final s in await BrussDB().getStopsById(stopIds))
+            (s.id, s.type): s
+        };
+        return TripBundle(routes: routes, trips: tripsH, stops: stops, total: trips.total);
       });
   }
 
   Future<void> getRtUpdates() async {
     final ids = trips.keys.toList();
+    if(ids.isEmpty) return;
     final req = TripUpdates.apiGet(ids);
     final updates = await BrussApi.request(req);
     if(updates.data == null) {
@@ -75,6 +86,7 @@ class TripBundle {
   void merge(TripBundle other) {
     routes.addAll(other.routes);
     trips.addAll(other.trips);
+    stops.addAll(other.stops);
     total = other.total;
   }
 }
@@ -82,7 +94,7 @@ class TripBundle {
 class StopCard extends DetailsCard {
   Map<int, br.Route> routes = {};
 
-  StopCard({required this.stop, super.key});
+  StopCard({required this.stop, required super.sizeController, super.key});
   final Stop stop;
 
   @override
@@ -105,14 +117,30 @@ class StopCard extends DetailsCard {
   Future<void> loadMore() async {
     print("StopCard.future()");
     var req = Trip.apiGetByStop(stop);
-    final now = DateTime.now();
     final DateFormat fmt = DateFormat("HH:mm");
-    req.query = "?limit=10&skip=${trips.trips.length}&time=${fmt.format(DateTime.now())}";
-    trips.merge(await TripBundle.fromRequest(req, Trip.sortByTimesStop(stop)));
+    req.query = "?limit=10&skip=${trips.trips.length}&time=${fmt.format(referenceTime)}";
+    trips.merge(await TripBundle.fromRequest(req));
   }
 
   @override
-  String title() => stop.name;
+  Widget cardContent(BuildContext context, bool isLoading, int total, Function() loadMore) {
+    return Column(
+      children: [
+        for(var t in trips.trips.values)
+          TripStopTile(trip: t, stop: stopReference()!, route: trips.routes[t.route]!, onTap: () {
+            selectedEntity.value = RouteDetails(route: trips.routes[t.route]!, direction: t.direction, sizeController: sizeController);
+          }),
+        hasMore() ? ElevatedButton(
+          onPressed: loadMore, 
+          child: isLoading ? const CircularProgressIndicator()
+            : const Text("Load more")
+        ) : total == 0 ? const Text("No trips") : const Text("No more trips")
+      ],
+    );
+  }
+
+  @override
+  Widget title() => Text(stop.name, style: const TextStyle(fontSize: 20));
 }
 
 class _DetailsCardState extends State<DetailsCard> {
@@ -148,7 +176,13 @@ class _DetailsCardState extends State<DetailsCard> {
   }
 
   @override
-  void initState() {
+  void didUpdateWidget(covariant DetailsCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    loadMore();
+  }
+
+  @override
+  initState() {
     super.initState();
     loadMore();
   }
@@ -159,8 +193,9 @@ class _DetailsCardState extends State<DetailsCard> {
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text(widget.title(), style: const TextStyle(fontSize: 20)),
+            widget.title(),
             IconButton(
               icon: Icon(!widget.isFavorite() ? Icons.favorite_border : Icons.favorite),
               onPressed: () => setState(() { widget.favorite(); }),
@@ -171,47 +206,126 @@ class _DetailsCardState extends State<DetailsCard> {
           const CircularProgressIndicator() :
           _error ?
             const Text("Error loading data") :
-              Column(
-                children: [
-                  for(var t in widget.trips.trips.values)
-                    TripStopTile(trip: t, route: widget.trips.routes[t.route]!, stop: widget.stopReference()!),
-                  widget.hasMore() ? ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        loadMore()
-                          .catchError((e, stack) {
-                            if (e is ApiException) {
-                              throw ApiException(e.error, stack: e.stack, retry: () => loadMore());
-                            } else {
-                              throw e;
-                            }
-                          });
-                      });
-                    }, 
-                    child: const Text("Load more")
-                  ) : const Text("No more trips")
-                ],
-              )
-      ],
+              widget.cardContent(context, _loading, widget.trips.total ?? 0, () {
+                setState(() {
+                  loadMore()
+                    .catchError((e, stack) {
+                      if (e is ApiException) {
+                        throw ApiException(e.error, stack: e.stack, retry: () => loadMore());
+                      } else {
+                        throw e;
+                      }
+                    });
+                });
+              }),
+          ],
     );
-
-    // return Padding(
-    //     padding: const EdgeInsets.all(15.0),
-    //     child: Column(
-    //       children: [
-    //         Row(
-    //           children: [
-    //             Expanded(child: Text(widget.title(), style: const TextStyle(fontSize: 20))),
-    //             IconButton(
-    //               icon: Icon(widget.isFavorite() ? Icons.favorite_border : Icons.favorite),
-    //               onPressed: () => setState(() { widget.favorite(); }),
-    //             ),
-    //           ]
-    //         ),
-    //         // Icon(Icons.directions_bus),
-    //         TripList(widget.trips),
-    //       ]
-    //     ),
-    // );
   }
+}
+
+class RouteCard extends DetailsCard {
+  RouteCard({required this.route, required this.direction, required super.sizeController, this.stop, super.key});
+  final br.Route route;
+  final Direction direction;
+  final Stop? stop;
+
+  @override
+  void favorite() {
+    if(route.isFavorite == null || !route.isFavorite!) {
+      route.isFavorite = true;
+    } else {
+      route.isFavorite = false;
+    }
+    db.updateRoute(route);
+  }
+  
+  @override
+  bool isFavorite() => route.isFavorite ?? false;
+
+  @override
+  Stop? stopReference() => stop;
+
+  @override
+  Future<void> loadMore() async {
+    print("RouteCard.future()");
+    var req = Trip.apiGetByRoute(route);
+    final DateFormat fmt = DateFormat("HH:mm");
+    req.query = "?limit=9&skip=${trips.trips.length}&time=${fmt.format(referenceTime)}";
+    trips.merge(await TripBundle.fromRequest(req));
+  }
+
+  @override
+  Widget cardContent(BuildContext context, bool isLoading, int total, Function() loadMore) {
+    final fmt = DateFormat("HH:mm");
+    bool passed = true;
+    return isLoading ? const CircularProgressIndicator() :
+      DefaultTabController(
+        initialIndex: 0,
+        length: trips.trips.length + 1,
+        child: Column(
+          mainAxisSize: MainAxisSize.max,
+          children: [
+            TabBar(
+              isScrollable: true,
+              tabs: [
+                for(var t in trips.trips.values)
+                  Tab(text: "${t.headsign} (${t.id})"),
+                GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: () {
+                    print("loadMore, value:");
+                    print("controller: ${DefaultTabController.of(context)}");
+                  },
+                  child: const Tab(text: "Load more")
+                )
+              ],
+            ),
+            LayoutBuilder(
+              builder: (context, constraints) => ValueListenableBuilder(
+                valueListenable: sizeController,
+                builder: (context, double size, child) {
+                  // print("Trip sequence at index 0:");
+                  // for (var t in trips.trips.values.first.times.entries) {
+                  //   print("${t.key} (${trips.stops[(t.key, route.areaType)]!.name}): ${fmt.format(t.value.arrival)}");
+                  // }
+                  // print("size: $size");
+                  return SizedBox(
+                    width: constraints.maxWidth - 48,
+                    height: sizeController.value - 100,
+                    child: child,
+                  ); 
+                },
+                child: TabBarView(
+                  children: [
+                    for(var t in trips.trips.values)
+                      ListView.builder(
+                        itemCount: t.times.length,
+                        itemBuilder: (context, index) {
+                          final currentStop = (t.times.keys.elementAt(index));
+                          // print("currentStop: ${route.areaType}/$currentStop");
+                          if (currentStop == t.nextStop && t.lastStop != t.nextStop) {
+                            print("currentStop: ${route.areaType}/$currentStop");
+                            passed = false;
+                          } else if (index == 0) {
+                            passed = true;
+                          }
+                          return TripRouteTile(trip: t, route: route, passed: passed, stop: trips.stops[(currentStop, route.areaType)]!, onTap: () {});
+                        }
+                      ),
+                    const Center(child: CircularProgressIndicator()),
+                  ],
+                ),
+              )
+            ),
+          ]
+        )
+      );
+  }
+
+  @override
+  Widget title() => Expanded(child: SizedBox(height: 70, child: ListView(children: [ListTile(
+    leading: RouteIcon(label: route.code, color: route.color),
+    title: Text(route.name, style: const TextStyle(fontSize: 20)),
+    subtitle: Text("Direction: $direction"),
+  )])));
 }

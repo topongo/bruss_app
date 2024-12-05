@@ -54,7 +54,7 @@ class ErrorHandler {
           builder: (context) {
             return AlertDialog(
               title: Center(child: Text("Fatal Error while connecting to API")),
-              content: Column(
+              content: SingleChildScrollView(child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(error.error.toString()),
@@ -66,7 +66,7 @@ class ErrorHandler {
                   ),
                   const Text("Please check your internet connection or change the API URL using the button below. The app won't work without a valid API connection."),
                 ],
-              ),
+              )),
               actions: [
                 ElevatedButton(
                   onPressed: () async {

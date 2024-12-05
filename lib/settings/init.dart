@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:bruss/ui/pages/map/map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class Settings {
@@ -22,6 +24,15 @@ class Settings {
   Future<String> get(String key) async {
     final prefs = await this.prefs;
     return prefs.getString(key) ?? SettingsMeta.get(key);
+  }
+
+  Future<dynamic> getConverted(String key) async {
+    final prefs = await this.prefs;
+    final c = SettingsMeta.getConverters[key];
+    if (c == null) {
+      throw Exception("No converter for $key");
+    }
+    return c(prefs.getString(key) ?? SettingsMeta.get(key));
   }
 
   Future<Map<String, dynamic>> getAll() async {
@@ -61,6 +72,7 @@ class Settings {
 class SettingsMeta {
   static final Map<String, String> defaults = {
     "api.url": "http://127.0.0.1:8000/api/v1/",
+    "map.position": setConverters["map.position"]!(trento),
   };
 
   static final Map<String, String> titles = {
@@ -81,6 +93,32 @@ class SettingsMeta {
       }
       return url;
     },
+    "map.position": (pos) {
+      final parts = pos.split(",");
+      if (parts.length != 2) {
+        throw Exception("Invalid position format");
+      }
+      final lat = double.tryParse(parts[0]);
+      final lon = double.tryParse(parts[1]);
+      if (lat == null || lon == null) {
+        throw Exception("Invalid position format");
+      }
+      return "$lat,$lon";
+    }
+  };
+
+  static final Map<String, String Function(dynamic)> setConverters = {
+    "map.position": (pos) {
+      final posConv = pos as LatLng;
+      return "${posConv.latitude},${posConv.longitude}";
+    }
+  };
+
+  static final Map<String, dynamic Function(String)> getConverters = {
+    "map.position": (pos) {
+      final parts = pos.split(",");
+      return LatLng(double.parse(parts[0]), double.parse(parts[1]));
+    }
   };
 
   static String title(String sub) {

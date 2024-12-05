@@ -56,6 +56,13 @@ class BrussDB extends _$BrussDB {
     return Stop.fromDB(await (select(stopCache)..where((s) => s.id.equals(id))).getSingle());
   }
 
+  Future<List<Stop>> getStopsById(Iterable<int> ids) async {
+    final query = select(stopCache)..where((s) => s.id.isIn(ids));
+
+    final result = await query.get();
+    return result.map((row) => Stop.fromDB(row)).toList();
+  }
+
   // Future<List<Route>> getRoutes() async {
   //   final query = select(routeCache);
   //
@@ -111,6 +118,10 @@ class BrussDB extends _$BrussDB {
     await batch((b) {
       b.insertAll(routeCache, routes.map((e) => e.toCompanion()));
     });
+  }
+
+  Future<void> updateRoute(Route route) async {
+    await update(routeCache).replace(route.toCompanion());
   }
 }
 

@@ -6,13 +6,14 @@ import '../../../../data/trip.dart';
 import '../../../../data/route.dart' as br;
 import 'route_icon.dart';
 
-class TripStopTile extends StatelessWidget {
+class TripRouteTile extends StatelessWidget {
   final Trip trip;
   final br.Route route;
   final Stop stop;
+  final bool passed;
   final Function() onTap;
   static final DateFormat fmt = DateFormat("HH:mm");
-  TripStopTile({required this.trip, required this.route, required this.stop, required this.onTap});
+  TripRouteTile({required this.trip, required this.route, required this.stop, required this.passed, required this.onTap});
 
   int get delay => trip.delay;
   bool get hasUpdates => trip.busId != null;
@@ -116,8 +117,8 @@ class TripStopTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: ListTile(
-        leading: RouteIcon(label: route.code, color: route.color),
-        title: Text(trip.headsign),
+        leading: Icon(passed ? Icons.check_circle : Icons.circle_outlined), 
+        title: Text("${stop.name} (${stop.id})"),
         subtitle: genSubtitle(context),
         trailing: genTrailing(context),
       )

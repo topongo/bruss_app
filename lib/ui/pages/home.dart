@@ -1,3 +1,4 @@
+import 'package:bruss/data/direction.dart';
 import 'package:bruss/data/sample.dart';
 import 'package:bruss/error.dart';
 import 'package:bruss/ui/pages/loading.dart';
@@ -89,8 +90,8 @@ class _HomePageState extends State<HomePage> {
         break;
       case 2:
         page = FutureBuilder(
-          future: BrussDB().getStop(403).then((value) {
-            return StopDetails(stop: value);
+          future: BrussDB().getRoute(402).then((value) {
+            return RouteDetails(route: value, direction: Direction.forward, sizeController: ValueNotifier(0.0));
           }),
           builder: (ctx, snap) {
             if(snap.connectionState == ConnectionState.done) {
