@@ -1,3 +1,4 @@
+import 'package:bruss/data/schedule.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -7,19 +8,19 @@ import '../../../../data/route.dart' as br;
 import 'route_icon.dart';
 
 class TripRouteTile extends StatelessWidget {
-  final Trip trip;
+  final Schedule sched;
   final br.Route route;
   final Stop stop;
   final bool passed;
   final Function() onTap;
   static final DateFormat fmt = DateFormat("HH:mm");
-  TripRouteTile({required this.trip, required this.route, required this.stop, required this.passed, required this.onTap});
+  TripRouteTile({required this.sched, required this.route, required this.stop, required this.passed, required this.onTap});
 
-  int get delay => trip.delay;
-  bool get hasUpdates => trip.busId != null;
+  int get delay => sched.trip.delay;
+  bool get hasUpdates => sched.trip.busId != null;
 
-  DateTime arriveIn() {
-    return trip.times[stop.id]!.arrival.add(Duration(minutes: delay));
+  DateTime arriveAt() {
+    return sched.arriveAtStop(stop).add(Duration(minutes: delay));
   }
 
   Duration timeUntil() {
@@ -29,7 +30,7 @@ class TripRouteTile extends StatelessWidget {
       minutes: now.minute,
       seconds: now.second,
     ));
-    return arriveIn().difference(nowEpoch);
+    return arriveAt().difference(nowEpoch);
   }
 
   String fmtTime(DateTime time) {
@@ -69,14 +70,14 @@ class TripRouteTile extends StatelessWidget {
             TextSpan(
               children: [
                 TextSpan(
-                  text: fmt.format(trip.times[stop.id]!.arrival), 
+                  text: fmt.format(sched.arriveAtStop(stop)), 
                   style: Theme.of(context).textTheme.labelMedium!.merge(const TextStyle(decoration: TextDecoration.lineThrough))
                 ),
                 spacer,
-                TextSpan(text: fmt.format(arriveIn()), style: Theme.of(context).textTheme.labelMedium),
+                TextSpan(text: fmt.format(arriveAt()), style: Theme.of(context).textTheme.labelMedium),
               ],
             )
-          : TextSpan(text: fmt.format(trip.times[stop.id]!.arrival), style: Theme.of(context).textTheme.labelMedium),
+          : TextSpan(text: fmt.format(sched.arriveAtStop(stop)), style: Theme.of(context).textTheme.labelMedium),
         ],
       ));
     } else {
@@ -107,7 +108,7 @@ class TripRouteTile extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(s.toString(), style: Theme.of(context).textTheme.titleSmall),
-        Text(fmtTime(arriveIn())),
+        Text(fmtTime(arriveAt())),
       ],
     );
   }

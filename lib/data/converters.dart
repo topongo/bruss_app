@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -36,23 +37,18 @@ class ColorConverter extends JsonConverter<Color, String> {
   }
 }
 
-class DateTimeConverter extends JsonConverter<DateTime, String> {
-  const DateTimeConverter();
+class DurationConverter extends JsonConverter<Duration, List<dynamic>> {
+  const DurationConverter();
 
   @override
-  DateTime fromJson(String json) {
-    final parts = json.split(":");
-    return DateTime.fromMillisecondsSinceEpoch(0).add(Duration(
-      hours: int.parse(parts[0]),
-      minutes: int.parse(parts[1]),
-      seconds: int.parse(parts[2]),
-    ));
+  Duration fromJson(List<dynamic> json) {
+    assert(json.length == 2);
+    return Duration(seconds: json[0] as int, milliseconds: json[1] as int);
   }
 
   @override
-  String toJson(DateTime object) {
-    final fmt = DateFormat("HH:mm:ss");
-    return fmt.format(object);
+  List<int> toJson(Duration object) {
+    throw Exception("Duration serialization isn't implemented yet");
   }
 }
 

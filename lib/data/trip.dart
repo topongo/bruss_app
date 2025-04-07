@@ -1,5 +1,3 @@
-import 'dart:collection';
-
 import 'package:bruss/api.dart';
 import 'package:bruss/data/converters.dart';
 import 'package:bruss/data/direction.dart';
@@ -19,10 +17,10 @@ part 'trip.g.dart';
 @JsonSerializable()
 class TripTime {
   
-  @DateTimeConverter()
-  final DateTime arrival;
-  @DateTimeConverter()
-  final DateTime departure;
+  @DurationConverter()
+  final Duration arrival;
+  @DurationConverter()
+  final Duration departure;
 
   TripTime({required this.arrival, required this.departure});
 
@@ -33,7 +31,7 @@ class TripTime {
 }
 
 @JsonSerializable()
-class ProtoTrip {
+class Trip extends BrussType {
   final String id;
   int delay;
   final Direction direction;
@@ -46,46 +44,7 @@ class ProtoTrip {
   final AreaType type;
   @TimesConverter()
   final Map<int, TripTime> times;
-  final List<int> sequence;
 
-  ProtoTrip({
-    required this.id,
-    required this.delay,
-    required this.direction,
-    required this.nextStop,
-    required this.lastStop,
-    required this.busId,
-    required this.route,
-    required this.headsign,
-    required this.path,
-    required this.times,
-    required this.sequence,
-    required this.type,
-  });
-
-  factory ProtoTrip.fromJson(final Map<String, dynamic> json) => _$ProtoTripFromJson(json);
-  factory ProtoTrip.fromRawJson(final String json) => ProtoTrip.fromJson(jsonDecode(json));
-
-  Map<String, dynamic> toMap() => _$ProtoTripToJson(this);
-}
-
-class Trip extends BrussType {
-  final String id;
-  int delay;
-  final Direction direction;
-  int? nextStop;
-  int? lastStop;
-  int? busId;
-  final int route;
-  final String headsign;
-  final String path;
-  final LinkedHashMap<int, TripTime> times;
-  final AreaType type;
-
-  final bool? isFavorite;
-
-  static String endpoint = "map/trip";
- 
   Trip({
     required this.id,
     required this.delay,
@@ -98,47 +57,12 @@ class Trip extends BrussType {
     required this.path,
     required this.times,
     required this.type,
-    this.isFavorite,
   });
 
-  factory Trip.fromJson(final Map<String, dynamic> json) {
-    final proto = ProtoTrip.fromJson(json);
-    final LinkedHashMap<int, TripTime> times = LinkedHashMap.fromIterable(proto.sequence, key: (s) => s, value: (s) => proto.times[s]!);
-    return Trip(
-      id: proto.id,
-      delay: proto.delay,
-      direction: proto.direction,
-      nextStop: proto.nextStop,
-      lastStop: proto.lastStop,
-      busId: proto.busId,
-      route: proto.route,
-      headsign: proto.headsign,
-      times: times,
-      type: proto.type,
-      path: proto.path,
-    );
-  }
+  factory Trip.fromJson(final Map<String, dynamic> json) => _$TripFromJson(json);
   factory Trip.fromRawJson(final String json) => Trip.fromJson(jsonDecode(json));
 
-  Map<String, dynamic> toMap() {
-    final sequence = times.keys.toList();
-    final times_unord = times.map((k, v) => MapEntry(k, v));
-    final proto = ProtoTrip(
-      id: id,
-      delay: delay,
-      direction: direction,
-      nextStop: nextStop!,
-      lastStop: lastStop!,
-      busId: busId!,
-      route: route,
-      headsign: headsign,
-      type: type,
-      path: path,
-      sequence: sequence,
-      times: times_unord,
-    );
-    return proto.toMap();
-  }
+  Map<String, dynamic> toMap() => _$TripToJson(this);
 
   static BrussRequest<Trip> apiGetByStop(Stop stop) {
     return BrussRequest(
@@ -169,3 +93,75 @@ class Trip extends BrussType {
     busId = other.busId;
   }
 }
+
+// class Trip extends BrussType {
+//   final String id;
+//   int delay;
+//   final Direction direction;
+//   int? nextStop;
+//   int? lastStop;
+//   int? busId;
+//   final int route;
+//   final String headsign;
+//   final String path;
+//   final LinkedHashMap<int, TripTime> times;
+//   final AreaType type;
+//
+//   final bool? isFavorite;
+//
+//   static String endpoint = "map/trip";
+//  
+//   Trip({
+//     required this.id,
+//     required this.delay,
+//     required this.direction,
+//     required this.nextStop,
+//     required this.lastStop,
+//     required this.busId,
+//     required this.route,
+//     required this.headsign,
+//     required this.path,
+//     required this.times,
+//     required this.type,
+//     this.isFavorite,
+//   });
+//
+//   factory Trip.fromJson(final Map<String, dynamic> json) {
+//     final proto = ProtoTrip.fromJson(json);
+//     final LinkedHashMap<int, TripTime> times = LinkedHashMap.fromIterable(proto.sequence, key: (s) => s, value: (s) => proto.times[s]!);
+//     return Trip(
+//       id: proto.id,
+//       delay: proto.delay,
+//       direction: proto.direction,
+//       nextStop: proto.nextStop,
+//       lastStop: proto.lastStop,
+//       busId: proto.busId,
+//       route: proto.route,
+//       headsign: proto.headsign,
+//       times: times,
+//       type: proto.type,
+//       path: proto.path,
+//     );
+//   }
+//   factory Trip.fromRawJson(final String json) => Trip.fromJson(jsonDecode(json));
+//
+//   Map<String, dynamic> toMap() {
+//     final sequence = times.keys.toList();
+//     final times_unord = times.map((k, v) => MapEntry(k, v));
+//     final proto = ProtoTrip(
+//       id: id,
+//       delay: delay,
+//       direction: direction,
+//       nextStop: nextStop!,
+//       lastStop: lastStop!,
+//       busId: busId!,
+//       route: route,
+//       headsign: headsign,
+//       type: type,
+//       path: path,
+//       times: times_unord,
+//     );
+//     return proto.toMap();
+//   }
+//
+// }

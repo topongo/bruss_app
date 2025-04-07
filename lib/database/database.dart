@@ -1,4 +1,6 @@
+import 'package:bruss/data/path.dart' as bp;
 import 'package:bruss/data/route.dart';
+import 'package:bruss/database/path.dart';
 import 'package:drift/drift.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -16,7 +18,7 @@ import 'route.dart';
 
 part 'database.g.dart';
 
-@DriftDatabase(tables: [AreaCache, StopCache, RouteCache])
+@DriftDatabase(tables: [AreaCache, StopCache, RouteCache, PathCache])
 class BrussDB extends _$BrussDB {
   static BrussDB? _instance;
 
@@ -122,6 +124,13 @@ class BrussDB extends _$BrussDB {
 
   Future<void> updateRoute(Route route) async {
     await update(routeCache).replace(route.toCompanion());
+  }
+
+  Future<List<bp.Path>> getPaths(Set<String> ids) async {
+    final query = select(pathCache)..where((s) => s.id.isIn(ids));
+
+    final result = await query.get();
+    return result.map((row) => bp.Path.fromDB(row)).toList();
   }
 }
 

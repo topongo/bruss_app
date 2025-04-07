@@ -14,6 +14,13 @@ class ApiResponse<T> {
 
   bool get isSuccess => statusCode == 200;
   bool get isError => !isSuccess;
+
+  List<T> unwrap() {
+    if (isError) {
+      throw Exception("API response is an error: $statusCode");
+    }
+    return data!;
+  }
 }
 
 class BrussRequest<T extends BrussType> {
