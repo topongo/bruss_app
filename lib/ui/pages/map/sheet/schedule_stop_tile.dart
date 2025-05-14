@@ -2,38 +2,33 @@ import 'package:bruss/data/schedule.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../data/stop.dart';
-import '../../../../data/trip.dart';
-import '../../../../data/route.dart' as br;
-import 'route_icon.dart';
+import 'package:bruss/data/stop.dart';
+import 'package:bruss/data/route.dart' as br;
 
-class TripStopTile extends StatelessWidget {
+class ScheduleStopTile extends StatelessWidget {
   final Schedule sched;
   final br.Route route;
   final Stop stop;
+  final bool? passed;
   final Function() onTap;
+  final bool highlight;
   static final DateFormat fmt = DateFormat("HH:mm");
-  TripStopTile({required this.sched, required this.route, required this.stop, required this.onTap});
+  ScheduleStopTile({required this.sched, required this.route, required this.stop, required this.passed, required this.onTap, this.highlight = false, super.key});
 
-  int get delay => sched.trip.delay;
+  int get delay => sched.trip.delay ?? 0;
   bool get hasUpdates => sched.trip.busId != null;
 
   DateTime arriveAt() {
-    return sched.departure.add(sched.trip.times[stop.id]!.arrival + Duration(minutes: delay));
+    return sched.arriveAtStop(stop).toLocal().add(Duration(minutes: delay));
   }
 
   Duration timeUntil() {
-    final now = DateTime.now();
-    final nowEpoch = DateTime.fromMillisecondsSinceEpoch(0).add(Duration(
-      hours: now.hour,
-      minutes: now.minute,
-      seconds: now.second,
-    ));
-    return arriveAt().difference(nowEpoch);
+    final now = DateTime.now().toUtc();
+    return arriveAt().difference(now);
   }
 
-  String fmtTime(DateTime time) {
-    return fmt.format(time);
+  String localizeAndFmtTime(DateTime time) {
+    return fmt.format(time.toLocal());
   }
 
   Widget genSubtitle(BuildContext context) {
@@ -56,12 +51,13 @@ class TripStopTile extends StatelessWidget {
           style: TextStyle(color: Colors.green),
         );
       }
-      final spacer = const WidgetSpan(child: SizedBox(width: 5));
+      const spacer = WidgetSpan(child: SizedBox(width: 5));
       return RichText(text: TextSpan(
         children: [
           keywordSpan,
           spacer,
-          TextSpan(text: "${delay.abs()} min.", /* style: Theme.of(context).textTheme.labelSmall */),
+          if (delay != 0)
+            TextSpan(text: "${delay.abs()} min.", /* style: Theme.of(context).textTheme.labelSmall */),
           spacer,
           const TextSpan(text: "•"),
           spacer,
@@ -69,27 +65,31 @@ class TripStopTile extends StatelessWidget {
             TextSpan(
               children: [
                 TextSpan(
-                  text: fmt.format(sched.arriveAtStop(stop)), 
+                  text: localizeAndFmtTime(sched.arriveAtStop(stop)), 
                   style: Theme.of(context).textTheme.labelMedium!.merge(const TextStyle(decoration: TextDecoration.lineThrough))
                 ),
                 spacer,
-                TextSpan(text: fmt.format(arriveAt()), style: Theme.of(context).textTheme.labelMedium),
+                TextSpan(text: localizeAndFmtTime(arriveAt()), style: Theme.of(context).textTheme.labelMedium),
               ],
             )
-          : TextSpan(text: fmt.format(sched.arriveAtStop(stop)), style: Theme.of(context).textTheme.labelMedium),
+          : TextSpan(text: localizeAndFmtTime(sched.arriveAtStop(stop)), style: Theme.of(context).textTheme.labelMedium),
         ],
       ));
     } else {
-      return const Text("Scheduled - No updates");
+      return Text("Scheduled - No updates - ${localizeAndFmtTime(sched.arriveAtStop(stop))}");
     }
   }
 
   Widget genTrailing(BuildContext context) {
-    final delta = timeUntil();
+    final s = StringBuffer();
+    Duration delta = timeUntil();
+    if (delta.isNegative) {
+      s.write("-");
+      delta = delta.abs();
+    }
     final m = delta.inMinutes % 60;
     final h = delta.inHours % 24;
     final d = delta.inDays;
-    final s = StringBuffer();
     if (d > 0) {
       s.write("${d}d");
     }
@@ -107,7 +107,7 @@ class TripStopTile extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(s.toString(), style: Theme.of(context).textTheme.titleSmall),
-        Text(fmtTime(arriveAt())),
+        Text(localizeAndFmtTime(arriveAt())),
       ],
     );
   }
@@ -117,8 +117,8 @@ class TripStopTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: ListTile(
-        leading: RouteIcon(label: route.code, color: route.color),
-        title: Text(sched.trip.headsign),
+        leading: Icon(passed == null ? Icons.question_mark : passed! ? Icons.check_circle : Icons.circle_outlined), 
+        title: Text("${stop.name} (${stop.id})"),
         subtitle: genSubtitle(context),
         trailing: genTrailing(context),
       )

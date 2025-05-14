@@ -1,37 +1,21 @@
 import 'package:bruss/data/schedule.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-
-import '../../../../data/stop.dart';
-import '../../../../data/trip.dart';
-import '../../../../data/route.dart' as br;
+import 'package:bruss/data/stop.dart';
+import 'package:bruss/data/route.dart' as br;
 import 'route_icon.dart';
 
-class TripRouteTile extends StatelessWidget {
+class StopRouteTile extends StatelessWidget {
   final Schedule sched;
   final br.Route route;
   final Stop stop;
-  final bool passed;
   final Function() onTap;
+  final bool? Function() hasPassed;
   static final DateFormat fmt = DateFormat("HH:mm");
-  TripRouteTile({required this.sched, required this.route, required this.stop, required this.passed, required this.onTap});
+  StopRouteTile({required this.sched, required this.route, required this.stop, required this.hasPassed, required this.onTap});
 
-  int get delay => sched.trip.delay;
+  int get delay => sched.trip.delay ?? 0;
   bool get hasUpdates => sched.trip.busId != null;
-
-  DateTime arriveAt() {
-    return sched.arriveAtStop(stop).add(Duration(minutes: delay));
-  }
-
-  Duration timeUntil() {
-    final now = DateTime.now();
-    final nowEpoch = DateTime.fromMillisecondsSinceEpoch(0).add(Duration(
-      hours: now.hour,
-      minutes: now.minute,
-      seconds: now.second,
-    ));
-    return arriveAt().difference(nowEpoch);
-  }
 
   String fmtTime(DateTime time) {
     return fmt.format(time);
@@ -70,14 +54,14 @@ class TripRouteTile extends StatelessWidget {
             TextSpan(
               children: [
                 TextSpan(
-                  text: fmt.format(sched.arriveAtStop(stop)), 
+                  text: fmt.format(sched.arriveAtStop(stop).toLocal()), 
                   style: Theme.of(context).textTheme.labelMedium!.merge(const TextStyle(decoration: TextDecoration.lineThrough))
                 ),
                 spacer,
-                TextSpan(text: fmt.format(arriveAt()), style: Theme.of(context).textTheme.labelMedium),
+                TextSpan(text: fmt.format(sched.arriveAtStopWithDelay(stop).toLocal()), style: Theme.of(context).textTheme.labelMedium),
               ],
             )
-          : TextSpan(text: fmt.format(sched.arriveAtStop(stop)), style: Theme.of(context).textTheme.labelMedium),
+          : TextSpan(text: fmt.format(sched.arriveAtStop(stop).toLocal()), style: Theme.of(context).textTheme.labelMedium),
         ],
       ));
     } else {
@@ -86,11 +70,16 @@ class TripRouteTile extends StatelessWidget {
   }
 
   Widget genTrailing(BuildContext context) {
-    final delta = timeUntil();
-    final m = delta.inMinutes % 60;
+    final s = StringBuffer();
+    Duration delta = sched.arriveIn(stop);
+    final isNegative = delta.isNegative;
+    delta = delta.abs();
+    final m = delta.inMinutes % 60 + 1;
     final h = delta.inHours % 24;
     final d = delta.inDays;
-    final s = StringBuffer();
+    if (d > 0) {
+      s.write("${d}d");
+    }
     if (d > 0) {
       s.write("${d}d");
     }
@@ -100,6 +89,9 @@ class TripRouteTile extends StatelessWidget {
     if (m > 0) {
       s.write("${m}m");
     }
+    if (isNegative) {
+      s.write(" ago");
+    }
     if (s.isEmpty) {
       s.write("Now");
     }
@@ -108,20 +100,23 @@ class TripRouteTile extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(s.toString(), style: Theme.of(context).textTheme.titleSmall),
-        Text(fmtTime(arriveAt())),
+        Text(fmtTime(sched.departFromStopWithDelay(stop))),
       ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    // true -> true; false -> false; null -> false
+    final passed = hasPassed() == true;
     return GestureDetector(
       onTap: onTap,
       child: ListTile(
-        leading: Icon(passed ? Icons.check_circle : Icons.circle_outlined), 
-        title: Text("${stop.name} (${stop.id})"),
+        leading: RouteIcon(label: route.code, color: route.color.withAlpha(passed ? 70 : 255)),
+        title: Text("${sched.trip.headsign} (${sched.trip.direction.icon})"),
         subtitle: genSubtitle(context),
         trailing: genTrailing(context),
+        tileColor: passed ? const Color(0xFF303030) : null,
       )
     );
   }
