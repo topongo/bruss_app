@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:bruss/api.dart';
-import 'package:bruss/data/area_type.dart';
 import 'package:bruss/data/bruss_type.dart';
 import 'package:json_annotation/json_annotation.dart';
 
@@ -11,15 +10,17 @@ part 'trip_updates.g.dart';
 class TripUpdates extends BrussType {
   final String id;
   final int delay;
-  final int lastStop;
-  final int nextStop;
+  final int? lastStop;
+  final int? nextStop;
   final int? busId;
+  final DateTime? lastEvent;
 
   TripUpdates({
     required this.id,
     required this.delay,
     required this.lastStop,
     required this.nextStop,
+    required this.lastEvent,
     this.busId,
   });
 
