@@ -19,6 +19,9 @@ enum Direction {
         break;
     }
   }
+
+  @override
+  String get icon => this == forward ? "→" : "←";
   // String get serialize() => this == urban ? "u" : "e";
 }
 
