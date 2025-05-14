@@ -33,11 +33,12 @@ class TripTime {
 @JsonSerializable()
 class Trip extends BrussType {
   final String id;
-  int delay;
+  int? delay;
   final Direction direction;
   int? nextStop;
   int? lastStop;
   int? busId;
+  DateTime? lastEvent;
   final int route;
   final String headsign;
   final String path;
@@ -57,6 +58,7 @@ class Trip extends BrussType {
     required this.path,
     required this.times,
     required this.type,
+    required this.lastEvent,
   });
 
   factory Trip.fromJson(final Map<String, dynamic> json) => _$TripFromJson(json);
@@ -91,77 +93,7 @@ class Trip extends BrussType {
     nextStop = other.nextStop;
     lastStop = other.lastStop;
     busId = other.busId;
+    lastEvent = other.lastEvent;
   }
 }
 
-// class Trip extends BrussType {
-//   final String id;
-//   int delay;
-//   final Direction direction;
-//   int? nextStop;
-//   int? lastStop;
-//   int? busId;
-//   final int route;
-//   final String headsign;
-//   final String path;
-//   final LinkedHashMap<int, TripTime> times;
-//   final AreaType type;
-//
-//   final bool? isFavorite;
-//
-//   static String endpoint = "map/trip";
-//  
-//   Trip({
-//     required this.id,
-//     required this.delay,
-//     required this.direction,
-//     required this.nextStop,
-//     required this.lastStop,
-//     required this.busId,
-//     required this.route,
-//     required this.headsign,
-//     required this.path,
-//     required this.times,
-//     required this.type,
-//     this.isFavorite,
-//   });
-//
-//   factory Trip.fromJson(final Map<String, dynamic> json) {
-//     final proto = ProtoTrip.fromJson(json);
-//     final LinkedHashMap<int, TripTime> times = LinkedHashMap.fromIterable(proto.sequence, key: (s) => s, value: (s) => proto.times[s]!);
-//     return Trip(
-//       id: proto.id,
-//       delay: proto.delay,
-//       direction: proto.direction,
-//       nextStop: proto.nextStop,
-//       lastStop: proto.lastStop,
-//       busId: proto.busId,
-//       route: proto.route,
-//       headsign: proto.headsign,
-//       times: times,
-//       type: proto.type,
-//       path: proto.path,
-//     );
-//   }
-//   factory Trip.fromRawJson(final String json) => Trip.fromJson(jsonDecode(json));
-//
-//   Map<String, dynamic> toMap() {
-//     final sequence = times.keys.toList();
-//     final times_unord = times.map((k, v) => MapEntry(k, v));
-//     final proto = ProtoTrip(
-//       id: id,
-//       delay: delay,
-//       direction: direction,
-//       nextStop: nextStop!,
-//       lastStop: lastStop!,
-//       busId: busId!,
-//       route: route,
-//       headsign: headsign,
-//       type: type,
-//       path: path,
-//       times: times_unord,
-//     );
-//     return proto.toMap();
-//   }
-//
-// }
