@@ -1,13 +1,10 @@
 import 'package:bruss/api.dart';
 import 'package:bruss/data/area_type.dart';
-import 'package:bruss/data/stop.dart';
 import 'package:bruss/data/trip.dart';
 import 'package:bruss/database/database.dart';
 import 'package:flutter/foundation.dart';
 
 import 'bruss_type.dart';
-import 'route.dart' as br;
-// import 'package:json_serializable/json_serializable.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'dart:convert';
 
@@ -50,8 +47,11 @@ class Path extends BrussType {
   static Future<List<Path>> getPathsCached(Set<String> ids) async {
     final cached = await BrussDB().getPaths(ids);
     final Set<String> missing = ids.difference(cached.map((e) => e.id).toSet());
-    final req = await BrussApi.request(apiGet(missing.toList()));
-    final List<Path> paths = req.unwrap() + cached;
+    final List<Path> paths = cached;
+    if (missing.isNotEmpty) {
+      final req = await BrussApi.request(apiGet(missing.toList()));
+      cached.addAll(req.unwrap());
+    }
     if (kDebugMode) {
       final Set<String> keyCheck = {};
       for (final p in paths) {
@@ -63,5 +63,31 @@ class Path extends BrussType {
     }
 
     return paths;
+  }
+
+  Iterable<(int, int)> stopPairs() sync* {
+    for (int i = 0; i < sequence.length - 1; i++) {
+      yield (sequence[i], sequence[i + 1]);
+    }
+  }
+
+  Iterable<(AreaType, int, int)> stopPairsType() {
+    return stopPairs().map((e) => (type, e.$1, e.$2));
+  }
+
+  int stopIndex(int stop) {
+    final index = sequence.indexOf(stop);
+    assert(index != -1, "Stop $stop not found in path $id");
+    return index;
+  }
+
+  int? passedStopIndex(Trip trip) {
+    assert(trip.path == id, "Trip path ${trip.path} does not match path $id");
+    for (final e in sequence.asMap().entries) {
+      if (trip.nextStop == e.value && trip.lastStop != trip.nextStop) {
+        return e.key - 1;
+      }
+    }
+    return null;
   }
 }
