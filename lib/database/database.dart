@@ -9,7 +9,6 @@ import 'connection.dart' as impl;
 import 'package:bruss/data/area_type.dart';
 import 'package:bruss/data/area.dart';
 import 'package:bruss/data/stop.dart';
-import 'package:bruss/data/route.dart';
 
 import 'position_converter.dart';
 import 'area.dart';
@@ -58,11 +57,33 @@ class BrussDB extends _$BrussDB {
     return Stop.fromDB(await (select(stopCache)..where((s) => s.id.equals(id))).getSingle());
   }
 
-  Future<List<Stop>> getStopsById(Iterable<int> ids) async {
-    final query = select(stopCache)..where((s) => s.id.isIn(ids));
+  Future<List<Stop>> getStopsById(Set<(AreaType, int)> ids) async {
+    // final query = select(stopCache)
+    //   ..where((s) => s.c);
 
-    final result = await query.get();
-    return result.map((row) => Stop.fromDB(row)).toList();
+    final query = customSelect(
+      "SELECT * FROM stop_cache WHERE (type, id) IN (${ids.map((e) => "(?, ?)").join(", ")})",
+      variables: ids.expand((e) => [Variable.withInt(e.$1.index), Variable.withInt(e.$2)]).toList(),
+      readsFrom: {stopCache},
+    );
+
+    final mapped = query.map((row) {
+      return Stop(
+        id: row.read<int>('id'),
+        code: row.read<String>('code'),
+        description: row.read<String>('description'),
+        position: const PositionConverter()
+            .fromSql(row.read<String>('position')),
+        altitude: row.read<int>('altitude'),
+        name: row.read<String>('name'),
+        town: row.read<String?>('town'),
+        type: AreaType.values[row.read<int>('type')],
+        wheelchairBoarding: row.read<bool?>('wheelchair_boarding'),
+        isFavorite: row.read<bool?>('is_favorite'),
+      );
+    });
+
+    return mapped.get();
   }
 
   // Future<List<Route>> getRoutes() async {
