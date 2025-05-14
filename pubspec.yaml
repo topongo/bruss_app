@@ -1,8 +1,8 @@
 name: bruss
-description: "A new Flutter project."
+description: "Rust-based web app for visually tracking busses of the city of Trento. Interactive map for visual tracking of busses, with their trips, the current location and delay."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: 'none'
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -59,6 +59,8 @@ dependencies:
   flutter_svg: ^2.1.0
   scrollable_positioned_list: ^0.3.8
   vector_graphics: ^1.1.18
+  flutter_launcher_icons: ^0.14.3
+  geolocator: ^14.0.0
 
 # dependencies_override:
 #   meta: ^1.11.0
@@ -92,9 +94,13 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    - assets/images/icon.png
+    - assets/images/logo.svg
+    - assets/icons/bruss.png
     - assets/icons/urban_stop.png
     - assets/icons/extraurban_stop.png
+    - assets/icons/simple_stop.png
+    - assets/icons/black_arrow.png
+    - assets/icons/white_arrow.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
