@@ -27,12 +27,30 @@ class Schedule extends BrussType {
 
   Map<String, dynamic> toMap() => _$ScheduleToJson(this);
 
-  DateTime arriveAtStop(Stop stop) {
-    return departure.add(trip.times[stop.id]!.arrival);
+  DateTime arriveAtStop(Object stop) {
+    int intStop = stop is int ? stop : (stop as Stop).id;
+    return departure.add(trip.times[intStop]!.arrival);
   }
 
-  DateTime departFromStop(Stop stop) {
-    return departure.add(trip.times[stop.id]!.departure);
+  DateTime departFromStop(Object stop) {
+    int intStop = stop is int ? stop : (stop as Stop).id;
+    return departure.add(trip.times[intStop]!.departure);
+  }
+
+  DateTime arriveAtStopWithDelay(Object stop) {
+    return departFromStop(stop).add(Duration(minutes: trip.delay ?? 0));
+  }
+
+  DateTime departFromStopWithDelay(Object stop) {
+    return departFromStop(stop).add(Duration(minutes: trip.delay ?? 0));
+  }
+
+  Duration arriveIn(Object stop) {
+    return arriveAtStopWithDelay(stop).toLocal().difference(DateTime.now());
+  }
+
+  Duration departIn(Object stop) {
+    return departFromStopWithDelay(stop).difference(DateTime.now());
   }
 
   static BrussRequest<Schedule> apiGetByStop(Stop stop) {
@@ -50,38 +68,21 @@ class Schedule extends BrussType {
       query: "?limit=10",
     );
   }
+
+  static int compareWithDelay(Schedule a, Schedule b) {
+    final aDelay = a.trip.delay ?? 0;
+    final bDelay = b.trip.delay ?? 0;
+    return a.departure
+      .add(Duration(minutes: aDelay))
+      .compareTo(b.departure
+        .add(Duration(minutes: bDelay)));
+  }
+
+  static int Function(Schedule a, Schedule b) compareByStopWithDelay(Stop stop) {
+    return (a, b) {
+      return a.departFromStopWithDelay(stop)
+        .compareTo(b.departFromStopWithDelay(stop));
+    };
+  }
 }
 
-// class Schedule extends BrussType {
-//   final Trip trip;
-//   final DateTime departure;
-//   final DateTime? arrivalAtStop;
-//
-//   Schedule({
-//     required this.trip,
-//     required this.departure,
-//     required this.arrivalAtStop,
-//   });
-//
-//   factory Schedule.fromJson(final Map<String, dynamic> json) {
-//     final proto = ProtoSchedule.fromJson(json);
-//     return Schedule(
-//       trip: Trip.fromJson(proto.trip),
-//       departure: proto.departure,
-//       arrivalAtStop: proto.arrivalAtStop,
-//     );
-//   }
-//   factory Schedule.fromRawJson(final String json) => Schedule.fromJson(jsonDecode(json));
-//
-//   Map<String, dynamic> toMap() {
-//     final proto = ProtoSchedule(
-//       trip: trip.toMap(),
-//       departure: departure,
-//       arrivalAtStop: arrivalAtStop,
-//     );
-//     return proto.toMap();
-//   }
-//
-
-//
-// }
