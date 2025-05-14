@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:bruss/api.dart';
 import 'package:bruss/settings/init.dart';
 import 'package:bruss/ui/pages/settings.dart';
@@ -25,7 +26,13 @@ class ErrorHandler {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(error.toString()),
-          Text(stack.toString()),
+          Expanded(
+            flex: 1,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.vertical,
+              child: Text(stack.toString()),
+            ),
+          ),
         ],
       ),
       actions: [
@@ -38,8 +45,9 @@ class ErrorHandler {
   }
 
   static void onPlatformError(Object error, StackTrace stack) {
+    if (error.toString() == "Cancelled") return;
     if (kDebugMode) {
-      print("====== onPlatformErrro - error ======");
+      print("====== onPlatformError - error ======");
       print(error);
       print("====== onPlatformError - stack ======");
       print(stack);
@@ -167,7 +175,13 @@ class FutureBuilderError extends StatelessWidget {
                             children: [
                               Text("Error details"),
                               Text(error.toString()),
-                              Text(stack.toString()),
+                              Expanded(
+                                flex: 1,
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.vertical,
+                                  child: Text(stack.toString()),
+                                ),
+                              )
                             ],
                           ),
                         ),
@@ -175,7 +189,7 @@ class FutureBuilderError extends StatelessWidget {
                     }
                   );
                 },
-                label: Text("Details")
+                label: const Text("Details")
               ),
             ],
           ),
