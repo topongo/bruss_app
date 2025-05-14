@@ -1,5 +1,6 @@
 import 'package:bruss/api.dart';
 import 'package:bruss/database/database.dart';
+import 'package:bruss/ui/pages/map/markers.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'area_type.dart';
@@ -81,5 +82,9 @@ class Stop extends BrussType {
       wheelchairBoarding: Value(wheelchairBoarding),
       isFavorite: Value(isFavorite),
     );
+  }
+
+  MapMarker<Stop> toMarker() {
+    return StopMarker(this);
   }
 }
