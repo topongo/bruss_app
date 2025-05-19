@@ -78,22 +78,25 @@ class ErrorHandler {
               actions: [
                 ElevatedButton(
                   onPressed: () async {
-                    const key = "api.url";
+                    const keys = ["api.host", "api.url"];
                     if (context.mounted) {
-                      showSettingDialog(
-                        context,
-                        key,
-                        await Settings().get(key),
-                        (context, field) async {
-                          await Settings().set(key, field.controller!.text);
-                          if (context.mounted) {
+                      for (final key in keys) {
+                        print("showintg setting dialog for $key");
+                        showSettingDialog(
+                          context,
+                          key,
+                          await Settings().get(key),
+                          (context, field) async {
+                            await Settings().set(key, field.controller!.text);
+                            if (context.mounted) {
+                              Navigator.of(context).pop();
+                            }
+                          },
+                          (context) {
                             Navigator.of(context).pop();
                           }
-                        },
-                        (context) {
-                          Navigator.of(context).pop();
-                        }
-                      );
+                        );
+                      }
                     }
                   },
                   child: const Text("Edit API"),

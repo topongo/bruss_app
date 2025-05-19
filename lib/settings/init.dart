@@ -35,6 +35,17 @@ class Settings {
     return c(prefs.getString(key) ?? SettingsMeta.get(key));
   }
 
+  Future<void> setConverted(String key, dynamic value) async {
+    final pref = await this.prefs;
+    final c = SettingsMeta.setConverters[key];
+    if (c == null) {
+      throw Exception("No converter for $key");
+    }
+    final str = c(value);
+    final checked = SettingsMeta.check(key, str);
+    await pref.setString(key, checked);
+  }
+
   Future<Map<String, dynamic>> getAll() async {
     final prefs = await this.prefs;
     final Map<String, dynamic> acc = {};
@@ -71,7 +82,8 @@ class Settings {
 
 class SettingsMeta {
   static final Map<String, String> defaults = {
-    "api.url": "http://127.0.0.1:8000/api/v1/",
+    "api.host": "https://bruss.prabo.org",
+    "api.url": "/api/v1/",
     "map.position": setConverters["map.position"]!(trento),
   };
 
@@ -80,18 +92,39 @@ class SettingsMeta {
   };
 
   static final Map<String, String> descriptions = {
-    "api.url": "DEV: Url of the API server to use",
+    "api.url": "Development: Url of the API server to use",
+    "api.host": "Development: Host of the API server to use",
   };
 
   static final Map<String, String Function(String)> checkers = {
+    "api.host": (url) {
+      try {
+        final uri = Uri.parse(url);
+        if (uri.scheme.isEmpty || uri.host.isEmpty) {
+          throw Exception("Invalid host format");
+        }
+        return Uri(host: uri.host, scheme: uri.scheme, port: uri.port).toString();
+      } catch (e) {
+        throw Exception("Invalid host format");
+      }
+    },
     "api.url": (url) {
-      if (!url.startsWith("http")) {
+      try {
+        final uri = Uri.parse(url);
+        if (uri.scheme.isNotEmpty || uri.host.isNotEmpty || uri.hasPort) {
+          throw Exception("Invalid url format");
+        }
+        var path = uri.path;
+        if (!path.endsWith("/")) {
+          path += "/";
+        }
+        if (path.startsWith("/")) {
+          path = path.substring(1);
+        }
+        return Uri(path: uri.path).toString();
+      } catch (e) {
         throw Exception("Invalid url format");
       }
-      if (!url.endsWith("/")) {
-        url += "/";
-      }
-      return url;
     },
     "map.position": (pos) {
       final parts = pos.split(",");
