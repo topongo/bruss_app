@@ -42,10 +42,6 @@ dependencies:
   flutter_map: ^7.0.2
   url_launcher: ^6.2.6
   latlong2: ^0.9.1
-  # sqflite: ^2.3.3+1
-  # path: ^1.9.0
-  # sqflite_common_ffi: ^2.3.3
-  # sqflite_common_ffi_web: ^0.4.3+1
   drift: ^2.18.0
   sqlite3_flutter_libs: ^0.5.0
   sqlite3: ^2.4.3
@@ -61,6 +57,7 @@ dependencies:
   vector_graphics: ^1.1.18
   flutter_launcher_icons: ^0.14.3
   geolocator: ^14.0.0
+  vector_tile_renderer: ^5.2.1
 
 # dependencies_override:
 #   meta: ^1.11.0
@@ -101,6 +98,7 @@ flutter:
     - assets/icons/simple_stop.png
     - assets/icons/black_arrow.png
     - assets/icons/white_arrow.png
+    - assets/map_style.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
