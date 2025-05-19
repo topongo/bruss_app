@@ -1,11 +1,17 @@
 import 'package:bruss/ui/pages/map/map.dart';
-import 'package:bruss/ui/pages/map/sheet/details.dart';
 import 'package:flutter/material.dart';
 import 'package:bruss/database/database.dart';
 
 class DetailsSheet extends StatefulWidget {
-  DetailsSheet({super.key});
+  DetailsSheet({super.key}) {
+    DetailsSheet.buildCount++;
+    print("====> DetailsSheet build count: $buildCount (${super.key})");
+  }
   final BrussDB db = BrussDB();
+  static int buildCount = 0;
+  static const initialSheetSize = 0.4;
+  static late DraggableScrollableController controller;
+  double? previousSize;
 
   @override
   State<StatefulWidget> createState() => _DetailsSheetState();
@@ -13,55 +19,80 @@ class DetailsSheet extends StatefulWidget {
 
 class _DetailsSheetState extends State<DetailsSheet> {
   final _sheet = GlobalKey();
-  final _controller = DraggableScrollableController();
-  static const _initialChildSize = 0.2;
+  late final double initialChildSize;
+
+  DraggableScrollableController get controller => DetailsSheet.controller;
+  set controller(DraggableScrollableController value) {
+    DetailsSheet.controller = value;
+  }
 
   @override
   void initState() {
     super.initState();
-    _controller.addListener(_onChanged);
+    controller = DraggableScrollableController();
+    controller.addListener(() {
+      if (controller.size == 0) {
+        selectedEntity.value?.updateSize(0);
+        selectedEntity.value = null;
+      } else {
+        selectedEntity.value?.updateSize(controller.sizeToPixels(controller.size));
+      }
+    });
+    selectedEntity.addListener(_onSelectedEntityChanged);
+    // initialChildSize = selectedEntity.value == null ? 0 : DetailsSheet.initialSheetSize;
   }
 
-  void _onChanged() {
-    // if (dontHide) return;
-    // print("collapsing sheet: (dontHide = $dontHide)");
-    // final currentSize = _controller.size;
-    // if (currentSize <= 0.05) _collapse();
+  void _onSelectedEntityChanged() {
+    print("====> selectedEntity changed: ${selectedEntity.value}");
+    if (selectedEntity.value == null) {
+      if (controller.isAttached) {
+        controller.jumpTo(0);
+      }
+    } else {
+      if (controller.size == 0) {
+        _middle();
+      }
+    }
   }
 
-  void _min() => _animateSheet(sheet.snapSizes!.first);
+  void _min() => _animateSheet(DetailsSheet.initialSheetSize);
 
-  void _middle() => _animateSheet(sheet.snapSizes![1]);
+  void _middle() => _animateSheet(DetailsSheet.initialSheetSize);
 
-  void _max() => _animateSheet(sheet.maxChildSize);
+  void _max() => _animateSheet(1);
 
   void _hidden() => _animateSheet(0);
 
   void _offset(double off) {
-    _controller.jumpTo(_controller.pixelsToSize(_controller.sizeToPixels(_controller.size) - off));
+    controller.jumpTo(controller.pixelsToSize(controller.sizeToPixels(controller.size) - off));
   }
 
   void _onDrag(DragUpdateDetails details) {
     _offset(details.primaryDelta!);
-    final size = _controller.sizeToPixels(_controller.size) - details.primaryDelta!;
-    // print("size: $size");
-    selectedEntity.value?.updateSize(size);
+    final size = controller.sizeToPixels(controller.size) - details.primaryDelta!;
+    print("size: $size");
+    widget.previousSize = size;
   }
   
   void _toggle() {
-    if (_controller.size == sheet.maxChildSize) {
+    if (controller.size == sheet.maxChildSize) {
       _min();
     } else {
       _max();
     }
   }
 
-  void _animateSheet(double size) {
-    _controller.animateTo(
-      size,
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeInOut,
-    );
+  Future<void> _animateSheet(double size) async {
+    print("===> called animateSheet($size)");
+    if (controller.isAttached) {
+      await controller.animateTo(
+        size,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      print("warning: tried to animate a detached details sheet controller");
+    }
   }
 
   DraggableScrollableSheet get sheet => (_sheet.currentWidget as DraggableScrollableSheet);
@@ -69,20 +100,26 @@ class _DetailsSheetState extends State<DetailsSheet> {
   @override
   void dispose() {
     super.dispose();
-    _controller.dispose();
+    print("disposing of details sheet controller");
+    selectedEntity.removeListener(_onSelectedEntityChanged);
+    controller.dispose();
+    selectedEntity.value?.updateSize(0);
   }
 
   @override
   Widget build(BuildContext context) {
+    final double initialSize = selectedEntity.value != null ? DetailsSheet.initialSheetSize : 0;
+    selectedEntity.value?.updateSize(initialSize);
+    print("====> details sheet controller id: ${controller.hashCode}");
     return DraggableScrollableSheet(
       key: _sheet,
-      initialChildSize: _initialChildSize,
       maxChildSize: 1,
       minChildSize: 0,
       expand: true,
+      initialChildSize: initialSize,
+      snapSizes: const [DetailsSheet.initialSheetSize, 1],
       snap: true,
-      snapSizes: const [_initialChildSize, 0.4],
-      controller: _controller,
+      controller: controller,
       builder: (BuildContext context, ScrollController scrollController) {
         return DecoratedBox(
           decoration: BoxDecoration(
@@ -92,50 +129,63 @@ class _DetailsSheetState extends State<DetailsSheet> {
               topRight: Radius.circular(12),
             ),
           ),
-          child: Padding(
-            padding: const EdgeInsets.only(left: 10, right: 10, bottom: 10),
-            child: CustomScrollView(
-              controller: scrollController,
-              slivers: [
-                SliverToBoxAdapter( 
-                  child: Center(
-                    child: GestureDetector(
-                      onTap: _toggle,
-                      onVerticalDragUpdate: (details) {
-                        _onDrag(details);
-                      },
-                      // behavior: HitTestBehavior.opaque,
-                      child: SizedBox(width: 45, height: 26, child: Center(child: Container( 
-                        decoration: BoxDecoration( 
-                          color: Colors.grey,
-                          borderRadius: BorderRadius.circular(5.0),
-                        ),
-                        height: 6,
-                        width: 25,
-                      ))),
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: ValueListenableBuilder(
-                    valueListenable: selectedEntity, 
-                    builder: (context, DetailsType? value, child) {
-                      print("selected entity: $selectedEntity");
-                      if(value == null) {
-                        _hidden();
-                        return const Text("empty");
-                      } else {
-                        _middle();
-                        return value;
-                      }
-                    }
-                  ),
-                ),
-              ],
-            ),
+          child: ValueListenableBuilder(
+            valueListenable: selectedEntity,
+            builder: (context, value, child) {
+              if (value == null) {
+                return SingleChildScrollView(
+                  controller: scrollController,
+                  child: const SizedBox(height: 0),
+                );
+              } else {
+                value.dragger = Dragger(
+                  onTap: _toggle,
+                  onDrag: (details) {
+                    _onDrag(details);
+                  },
+                  collapse: () async {
+                    await _animateSheet(0);
+                  },
+                  controller: scrollController,
+                );
+                _middle();
+                return value;
+              }
+            },
           ),
         );
       },
+    );
+  }
+
+}
+
+class Dragger extends StatelessWidget {
+  const Dragger({required this.onTap, required this.onDrag, required this.controller, required this.collapse, super.key});
+  final Function(DragUpdateDetails) onDrag;
+  final Function() onTap;
+  final Future<void> Function() collapse;
+  final ScrollController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      onVerticalDragUpdate: (details) { onDrag(details); },
+      child: SizedBox(
+        width: 45,
+        height: 26,
+        child: Center(
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.grey,
+              borderRadius: BorderRadius.circular(5.0),
+            ),
+            height: 6,
+            width: 25,
+          ),
+        ),
+      ),
     );
   }
 }
