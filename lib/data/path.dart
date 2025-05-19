@@ -2,12 +2,12 @@ import 'package:bruss/api.dart';
 import 'package:bruss/data/area_type.dart';
 import 'package:bruss/data/trip.dart';
 import 'package:bruss/database/database.dart';
+import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
 import 'bruss_type.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'dart:convert';
-
 
 part 'path.g.dart';
 
@@ -61,6 +61,10 @@ class Path extends BrussType {
       }
       assert(ids.isEmpty, "Missing paths: ${ids.join(",")}");
     }
+    final toInsert = paths
+      .where((p) => missing.contains(p.id))
+      .toList();
+    BrussDB().insertPaths(toInsert);
 
     return paths;
   }
@@ -89,5 +93,14 @@ class Path extends BrussType {
       }
     }
     return null;
+  }
+
+  PathCacheCompanion toCompanion() {
+    return PathCacheCompanion(
+      id: Value(id),
+      type: Value(type),
+      sequence: Value(sequence),
+      rty: Value(rty),
+    );
   }
 }
