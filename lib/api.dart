@@ -67,12 +67,25 @@ class ApiException<T> implements Exception {
 }
 
 class BrussApi {
-  const BrussApi();
+  static const String mapStyle = "resources/map-style.json";
+
+  static Future<Uri> genUrl(String endpoint, {String? query, bool hostOnly = false}) async {
+    final apiHost = await Settings().get("api.host");
+    if (query?.startsWith("?") == true) {
+      query = query!.substring(1);
+    }
+    if (hostOnly) {
+       return Uri.parse(apiHost).replace(path: endpoint, query: query);
+    }
+    final apiUrl = await Settings().get("api.url");
+    print("${Uri.parse(apiHost)} ${Uri.parse(apiHost).replace(path: apiUrl)}");
+    return Uri.parse(apiHost)
+      .replace(path: "$apiUrl$endpoint", query: query);
+  }
 
   static Future<ApiResponse<T>> request<T extends BrussType>(BrussRequest<T> req) async {
-    final apiUrl = await Settings().get("api.url");
-    final url = Uri.parse("$apiUrl${req.endpoint}${req.query ?? ""}");
-    print("API: fetching from $url");
+    final url = await genUrl(req.endpoint, query: req.query);
+    print("API: fetching from ${url}");
     return http.get(url)
       .then((response) {
         switch(response.statusCode) {
