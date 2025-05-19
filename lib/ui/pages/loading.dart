@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:bruss/database/database.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class LoadingPage extends StatefulWidget {
   LoadingPage({super.key});
@@ -10,7 +11,7 @@ class LoadingPage extends StatefulWidget {
 }
 
 class _LoadingPageState extends State<LoadingPage> {
-  static const Image icon = Image(image: AssetImage('assets/images/icon.png'), width: 200);
+  static const SvgAssetLoader icon = SvgAssetLoader('assets/images/logo.svg');
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +19,11 @@ class _LoadingPageState extends State<LoadingPage> {
       body: Center(child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          icon,
+          SvgPicture(
+            icon,
+            width: 200,
+            height: 200,
+          ),
           SizedBox(height: 20),
           CircularProgressIndicator(),
         ],
