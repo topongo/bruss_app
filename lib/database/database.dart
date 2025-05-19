@@ -153,5 +153,11 @@ class BrussDB extends _$BrussDB {
     final result = await query.get();
     return result.map((row) => bp.Path.fromDB(row)).toList();
   }
+
+  Future<void> insertPaths(List<bp.Path> paths) async {
+    await batch((b) {
+      b.insertAll(pathCache, paths.map((e) => e.toCompanion()));
+    });
+  }
 }
 
