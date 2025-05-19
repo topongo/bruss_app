@@ -1,10 +1,7 @@
-import 'package:bruss/data/direction.dart';
-import 'package:bruss/data/sample.dart';
 import 'package:bruss/error.dart';
 import 'package:bruss/ui/pages/loading.dart';
 import 'package:bruss/ui/pages/map/map.dart';
 import 'package:bruss/ui/pages/map/sheet/details.dart';
-import 'package:bruss/ui/pages/map/sheet/details_sheet.dart';
 import 'package:bruss/ui/pages/settings.dart';
 import 'package:flutter/material.dart';
 import 'package:bruss/database/database.dart';
@@ -12,6 +9,9 @@ import 'package:bruss/api.dart';
 import 'package:bruss/data/area.dart';
 import 'package:bruss/data/stop.dart';
 import 'package:bruss/data/route.dart' as br;
+
+import 'saved.dart';
+import 'map/sheet/details_sheet.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -24,6 +24,10 @@ class _HomePageState extends State<HomePage> {
   bool loading = true;
   late Future<void> _future;
   var selectedIndex = 0;
+  static const int mapIndex = 0;
+  static const int savedIndex = 1;
+  static const int settingsIndex = 2;
+  static const int testIndex = 3;
 
   @override
   void initState() {
@@ -32,6 +36,15 @@ class _HomePageState extends State<HomePage> {
         (_) => setState(() { loading = false; })
       )
     );
+    selectedEntity.addListener(() {
+      if(selectedEntity.value != null) {
+        if (selectedIndex == savedIndex) {
+          setState(() {
+            selectedIndex = mapIndex;
+          });
+        }
+      }
+    });
     super.initState();
   }
 
@@ -82,16 +95,26 @@ class _HomePageState extends State<HomePage> {
   Widget _mainPage(BuildContext context) {
     Widget page;
     switch (selectedIndex) {
-      case 0:
+      case mapIndex:
         page = MapPage();
         break;
-      case 1:
+      case settingsIndex:
         page = SettingsPage();
         break;
-      case 2:
+      case savedIndex:
+        page = const SavedPage();
+        break;
+      case testIndex:
         page = FutureBuilder(
           future: BrussDB().getRoute(402).then((value) {
-            return RouteDetails(route: value, direction: Direction.forward, sizeController: ValueNotifier(0.0));
+            final det = RouteDetails(route: value);
+            det.dragger = Dragger(
+              onTap: () {},
+              onDrag: (_) {},
+              controller: ScrollController(),
+              collapse: () async {},
+            );
+            return det;
           }),
           builder: (ctx, snap) {
             if(snap.connectionState == ConnectionState.done) {
@@ -107,7 +130,7 @@ class _HomePageState extends State<HomePage> {
     }
 
 
-    return LayoutBuilder(builder: (context, constraints) { return Scaffold(
+    return Scaffold(
       appBar: AppBar(
         centerTitle: true,
         title: const Text("Bruss"),
@@ -119,6 +142,7 @@ class _HomePageState extends State<HomePage> {
             // NavigationRailDestination(icon: Icon(Icons.home), label: Text("Generator")),
             // NavigationRailDestination(icon: Icon(Icons.favorite), label: Text("Favorites")),
             NavigationRailDestination(icon: Icon(Icons.map), label: Text("Map")),
+            NavigationRailDestination(icon: Icon(Icons.favorite), label: Text("Saved")),
             NavigationRailDestination(icon: Icon(Icons.settings), label: Text("Settings")),
             NavigationRailDestination(icon: Icon(Icons.science), label: Text("Testing")),
           ],
@@ -139,7 +163,7 @@ class _HomePageState extends State<HomePage> {
           ))
         ],
       ),
-    ); });
+    );
   }
 
   Widget _errorPage(BuildContext context, Object error, Object stack) {
