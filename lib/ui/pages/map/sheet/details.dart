@@ -1,5 +1,6 @@
-import 'package:bruss/data/direction.dart';
+import 'package:bruss/data/schedule.dart';
 import 'package:bruss/ui/pages/map/sheet/card.dart';
+import 'package:bruss/ui/pages/map/sheet/details_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:bruss/data/stop.dart';
 import 'package:bruss/data/route.dart' as br;
@@ -11,17 +12,29 @@ abstract class DetailsType extends StatelessWidget {
   Widget build(BuildContext context);
 
   void updateSize(double off);
+  double get sheetSize;
+  DateTime? get refTimeOverride;
+  Dragger? dragger;
 }
 
 class StopDetails extends StatelessWidget implements DetailsType {
-  StopDetails({required this.stop, required this.sizeController, super.key});
+  StopDetails({required this.stop, refTime, super.key}) {
+    _refTimeOverride = refTime;
+  }
   final Stop stop;
-  final ValueNotifier<double> sizeController;
+  final ValueNotifier<double> sizeController = ValueNotifier(0);
+  late final DateTime? _refTimeOverride;
+  @override
+  double get sheetSize => sizeController.value;
+  @override
+  DateTime? get refTimeOverride => _refTimeOverride;
+  @override
+  Dragger? dragger;
 
   @override
   Widget build(BuildContext context) {
     print("Creating stopCard for stop ${stop.name}");
-    return StopCard(stop: stop, sizeController: sizeController);
+    return StopCard(stop: stop, sizeController: sizeController, dragger: dragger!);
   }
 
   @override
@@ -31,16 +44,24 @@ class StopDetails extends StatelessWidget implements DetailsType {
 }
 
 class RouteDetails extends StatelessWidget implements DetailsType {
-  RouteDetails({required this.route, required this.direction, required this.sizeController, super.key});
+  RouteDetails({required this.route, this.schedule, refTime, super.key}) {
+    _refTimeOverride = refTime;
+  }
   final br.Route route;
-  final Direction direction;
-  final ValueNotifier<double> sizeController;
-
+  // final Direction direction;
+  final ValueNotifier<double> sizeController = ValueNotifier(0);
+  final Schedule? schedule;
+  late final DateTime? _refTimeOverride;
+  @override
+  DateTime? get refTimeOverride => _refTimeOverride;
+  @override
+  double get sheetSize => sizeController.value;
+  @override
+  Dragger? dragger;
 
   @override
   Widget build(BuildContext context) {
-    print("Creating routeCard for route ${route.name}");
-    return RouteCard(route: route, direction: direction, sizeController: sizeController);
+    return RouteCard(route: route, dragger: dragger!, sizeController: sizeController, schedule: schedule);
   }
 
   @override
