@@ -1,112 +1,175 @@
-import 'dart:collection';
+
+import 'dart:async';
 
 import 'package:bruss/api.dart';
-import 'package:bruss/data/direction.dart';
+import 'package:bruss/data/area_type.dart';
 import 'package:bruss/data/route.dart' as br;
+import 'package:bruss/data/path.dart' as bp;
 import 'package:bruss/data/schedule.dart';
 import 'package:bruss/data/stop.dart';
-import 'package:bruss/data/trip.dart';
-import 'package:bruss/data/trip_updates.dart';
+import 'package:bruss/data/trip_bundle.dart';
 import 'package:bruss/database/database.dart';
 import 'package:bruss/ui/pages/map/map.dart';
+import 'package:bruss/ui/pages/map/markers.dart';
 import 'package:bruss/ui/pages/map/sheet/details.dart';
+import 'package:bruss/ui/pages/map/sheet/details_sheet.dart' show DetailsSheet, Dragger;
 import 'package:bruss/ui/pages/map/sheet/route_icon.dart';
-import 'package:bruss/data/path.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../data/area_type.dart';
-import 'stop_trip_list.dart';
-import 'route_trip_list.dart';
+import 'stop_route_tile.dart';
+import 'schedule_stop_tile.dart';
 
 
 abstract class DetailsCard extends StatefulWidget {
-  DetailsCard({super.key, required this.sizeController});
+  DetailsCard({super.key, required this.sizeController, required this.dragger});
   final BrussDB db = BrussDB();
-  final trips = TripBundle(routes: {}, stops: {}, paths: {}, scheds: LinkedHashMap<(String, DateTime), Schedule>());
+  final trips = TripBundle.empty();
   final ValueNotifier<double> sizeController;
   DateTime referenceTime = DateTime.now();
   Key attemptKey = UniqueKey();
+  final StreamController<void> _needsRebuildController = StreamController();
+  void needsRebuild() => _needsRebuildController.add(null);
+  Dragger dragger;
   
   Stop? stopReference();
   
   void favorite();
   Widget title();
+  Widget icon();
   bool isFavorite();
-  Future<void> loadMore();
-  bool hasMore() => trips.hasMore();
-  Widget cardContent(BuildContext context, bool isLoading, int total, Function() loadMore);
+  Future<void> loadMore() ;
+  Future<void> update() async {
+    final interactor = MapInteractor();
+    try {
+      await trips.getRtUpdates();
+      if (interactor.focusedSched != null && trips.contains(interactor.focusedSched!)) {
+        interactor.focusOnSched(interactor.focusedSched!, trips.routes[interactor.focusedSched!.trip.route]!);
+      }
+    } catch (e) {
+      if (e is ApiException) {
+        throw ApiException(e.error, stack: e.stack, retry: () => update());
+      } else {
+        rethrow;
+      }
+    }
+    needsRebuild();
+  }
+  bool hasMore() => trips.hasMore;
+  Widget cardContent(BuildContext context, bool isLoading, int total, TickerProvider vsync, Function() loadMore);
+
+  static const Duration updateDuration = Duration(seconds: 15);
 
   @override
   State<StatefulWidget> createState() => _DetailsCardState();
 }
 
-class TripBundle {
-  TripBundle({required this.routes, required this.stops, required this.scheds, required this.paths, this.total});
-  Map<int, br.Route> routes = {};
-  Map<(int, AreaType), Stop> stops = {};
-  Map<String, Path> paths = {};
-  LinkedHashMap<(String, DateTime), Schedule> scheds;
-  int? total;
-  bool hasMore() { return total == null || scheds.length < total!; }
+class _DetailsCardState extends State<DetailsCard> with TickerProviderStateMixin {
+  bool _init = false;
+  bool _loading = false;
+  late final Future<void> _autoUpdateRoutine;
+  late final StreamSubscription<void> _needsRebuildSub;
 
-  static Future<TripBundle> fromRequest(BrussRequest<Schedule> request) {
-    return BrussApi.request(request)
-      .then((trips) async {
-        final Set<int> neededRoutes = trips.data!.map((t) => t.trip.route).toSet();
-        final Set<String> neededPaths = trips.data!.map((t) => t.trip.path).toSet();
-        final getters = neededRoutes.map((r) => BrussDB().getRoute(r));
-        final it = (await Future.wait(getters)).map((r) => r).iterator;
-        Map<int, br.Route> routes = {};
-        while(it.moveNext()) {
-          routes[it.current.id] = it.current;
-        }
-        final paths = await Path.getPathsCached(neededPaths);
-        final pathsH = {for(final p in paths) p.id: p};
-        final tripsH = LinkedHashMap<(String, DateTime), Schedule>.fromIterable(trips.data!, key: (t) => (t.trip.id, t.departure), value: (t) => t);
-        final stopIds = trips.data!.map((t) => t.trip.times.keys).expand((e) => e).toSet();
-        final stops = {
-          for(final s in await BrussDB().getStopsById(stopIds))
-            (s.id, s.type): s
-        };
-        return TripBundle(routes: routes, scheds: tripsH, stops: stops, total: trips.total, paths: pathsH);
-      });
-  }
-
-  Future<void> getRtUpdates() async {
-    final ids = scheds.keys.map((v) => v.$1).toList();
-    if(ids.isEmpty) return;
-    // this is a workaround, since the API doesn't distinguish a trip that departed now and a trip that
-    // will depart next week, with the same id. we internally keep this data to being able to keep a
-    // schedule, but in the end the tracking will be broken (aka: trips scheduled for monday at 7:00 from
-    // a certain stop will receive rt updates even if it will depart next month or year...)
-    final Map<String, DateTime> idsToDt = {for (final v in scheds.keys) v.$1: v.$2};
-    final req = TripUpdates.apiGet(ids);
-    final updates = await BrussApi.request(req);
-    if(updates.data == null) {
-      throw ApiException("No updates found");
-    }
-    for(var u in updates.data!) {
-      if(idsToDt.containsKey(u.id) && scheds.containsKey((u.id, idsToDt[u.id]!))) {
-        scheds[(u.id, idsToDt[u.id]!)]!.trip.update(u);
+  Future<void> _autoUpdate() async {
+    await Future.delayed(DetailsCard.updateDuration);
+    while (mounted) {
+      await widget.update();
+      if (mounted) {
+        setState(() {});
       }
+      await Future.delayed(DetailsCard.updateDuration);
     }
   }
 
-  // merge to another TripBundle
-  void merge(TripBundle other) {
-    routes.addAll(other.routes);
-    scheds.addAll(other.scheds);
-    stops.addAll(other.stops);
-    paths.addAll(other.paths);
-    total = other.total;
+  Future<void> loadMoreInner() async {
+    print("============> called loadMoreInner <=============");
+    if(_loading || !widget.trips.hasMore) return;
+    if (_init) {
+      setState(() {
+        _loading = true;
+      });
+    }
+    await widget.loadMore();
+    widget.trips.getRtUpdates().then((_) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    });
+    setState(() {
+      _init = true;
+    });
+  }
+
+  Future<void> loadMore() {
+    return loadMoreInner().catchError((e, stack) {
+      if (e is ApiException) {
+        throw ApiException(e.error, stack: e.stack, retry: () => loadMore());
+      } else {
+        throw e;
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant DetailsCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.trips.length == 0) {
+      loadMore();
+    } else {
+      widget.trips.merge(oldWidget.trips);
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // on widget build finish
+    print("called loadMore");
+    loadMore();
+    _needsRebuildSub = widget._needsRebuildController.stream.listen(_onNeedRebuild);
+    WidgetsBinding.instance.addPostFrameCallback(_onPostFrame);
+    _autoUpdateRoutine = _autoUpdate();
+  }
+
+  void _onNeedRebuild(_) {
+    setState(() {
+      // print("NEEDSREBUILD has been called!");
+    });
+  } 
+
+  void _onPostFrame(_) {
+    if (DetailsSheet.controller.isAttached && DetailsSheet.controller.size == 0) {
+      DetailsSheet.controller.animateTo(DetailsSheet.initialSheetSize, duration: const Duration(milliseconds: 500), curve: Curves.easeInOutCubic);
+    } else {
+      print("warning: tried to animate a detached controller, while loading card");
+    }
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    _needsRebuildSub.cancel();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.cardContent(
+      context,
+      _loading,
+      widget.trips.length,
+      this,
+      loadMore
+    );
   }
 }
 
 class StopCard extends DetailsCard {
   Map<int, br.Route> routes = {};
 
-  StopCard({required this.stop, required super.sizeController, super.key});
+  StopCard({required this.stop, required super.sizeController, super.key, required super.dragger});
   final Stop stop;
 
   @override
@@ -127,119 +190,98 @@ class StopCard extends DetailsCard {
 
   @override
   Future<void> loadMore() async {
-    print("StopCard.future()");
     var req = Schedule.apiGetByStop(stop);
     final DateFormat fmt = DateFormat("HH:mm");
-    req.query = "?limit=10&skip=${trips.scheds.length}&time=${fmt.format(referenceTime)}";
-    trips.merge(await TripBundle.fromRequest(req));
+    req.query = "?limit=10&skip=${trips.length}&time=${fmt.format(referenceTime)}";
+    final newBundle = await TripBundle.fromRequest(req);
+    await MapInteractor().getPaths(newBundle.schedules.map((t) => t.trip.path).toSet());
+    trips.merge(newBundle);
   }
 
   @override
-  Widget cardContent(BuildContext context, bool isLoading, int total, Function() loadMore) {
-    return Column(
-      children: [
-        for(var t in trips.scheds.values)
-          TripStopTile(sched: t, stop: stopReference()!, route: trips.routes[t.trip.route]!, onTap: () {
-            selectedEntity.value = RouteDetails(route: trips.routes[t.trip.route]!, direction: t.trip.direction, sizeController: sizeController);
-          }),
-        hasMore() ? ElevatedButton(
-          onPressed: loadMore, 
-          child: isLoading ? const CircularProgressIndicator()
-            : const Text("Load more")
-        ) : total == 0 ? const Text("No trips") : const Text("No more trips")
-      ],
+  Widget cardContent(BuildContext context, bool isLoading, int total, TickerProvider _, Function() loadMore) {
+    final scheds;
+    if (!isLoading) {
+      scheds = trips.schedsSortedByStop(stop).toList();
+    } else {
+      scheds = <Schedule>[];
+    }
+    return Scaffold(
+      appBar: AppBar(
+        title: title(),
+        actions: [
+          IconButton(
+            icon: Icon(isFavorite() ? Icons.favorite : Icons.favorite_border),
+            onPressed: () {
+              favorite();
+              needsRebuild();
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              update();
+            }
+          ),
+          IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () {
+              dragger.collapse().then((_) => selectedEntity.value = null);
+            },
+          ),
+        ]
+      ),
+      body: isLoading ? const Center(child: CircularProgressIndicator()) :
+        ListView.builder(
+          controller: dragger.controller,
+          itemCount: scheds.length + 1,
+          itemBuilder: (context, index) {
+            if (index == scheds.length) {
+              return hasMore() ? ElevatedButton(
+                onPressed: loadMore, 
+                child: isLoading ? const CircularProgressIndicator()
+                  : const Text("Load more")
+              ) : total == 0 ? const Text("No trips") : const Text("No more trips");
+            }
+            return StopRouteTile(
+              sched: scheds[index],
+              hasPassed: () => trips.hasPassedFromStop(scheds[index], stop),
+              stop: stopReference()!,
+              route: trips.routes[scheds[index].trip.route]!,
+              onTap: () {
+                final newDets = RouteDetails(
+                  route: trips.routes[scheds[index].trip.route]!,
+                  schedule: scheds[index],
+                );
+                newDets.dragger = dragger;
+                selectedEntity.value = newDets;
+              }
+            );
+          }
+        )
     );
   }
 
   @override
   Widget title() => Text(stop.name, style: const TextStyle(fontSize: 20));
-}
-
-class _DetailsCardState extends State<DetailsCard> {
-  int _count = 0;
-  bool _init = false;
-  bool _loading = false;
-  bool _error = false;
-
-  Future<void> loadMoreInner() async {
-    if(_loading || !widget.trips.hasMore()) return;
-    if (_init) {
-      setState(() {
-        _loading = true;
-      });
-    }
-    await widget.loadMore();
-    await widget.trips.getRtUpdates();
-    setState(() {
-      print("finished loading");
-      _loading = false;
-      _init = true;
-    });
-  }
-
-  Future<void> loadMore() {
-    return loadMoreInner().catchError((e, stack) {
-      if (e is ApiException) {
-        throw ApiException(e.error, stack: e.stack, retry: () => loadMore());
-      } else {
-        throw e;
-      }
-    }); 
-  }
 
   @override
-  void didUpdateWidget(covariant DetailsCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    loadMore();
-  }
-
-  @override
-  initState() {
-    super.initState();
-    loadMore();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            widget.title(),
-            IconButton(
-              icon: Icon(!widget.isFavorite() ? Icons.favorite_border : Icons.favorite),
-              onPressed: () => setState(() { widget.favorite(); }),
-            ),
-          ]
-        ),
-        !_init ?
-          const CircularProgressIndicator() :
-          _error ?
-            const Text("Error loading data") :
-              widget.cardContent(context, _loading, widget.trips.total ?? 0, () {
-                setState(() {
-                  loadMore()
-                    .catchError((e, stack) {
-                      if (e is ApiException) {
-                        throw ApiException(e.error, stack: e.stack, retry: () => loadMore());
-                      } else {
-                        throw e;
-                      }
-                    });
-                });
-              }),
-          ],
-    );
-  }
+  Widget icon() => Image.asset(MarkerType.values[stop.type.index].asset);
 }
 
 class RouteCard extends DetailsCard {
-  RouteCard({required this.route, required this.direction, required super.sizeController, this.stop, super.key});
+  RouteCard({required this.route, required super.sizeController, this.stop, Schedule? schedule, super.key, required super.dragger}) {
+    // set previousSchedIndex
+    if (schedule != null) {
+      setParentTab(schedule);
+    }
+  }
   final br.Route route;
-  final Direction direction;
   final Stop? stop;
+  TabController? tabController;
+  int? previousSchedIndex;
+  int? parentSchedIndex;
+  DateTime? refTimeWithDelay;
 
   @override
   void favorite() {
@@ -259,88 +301,278 @@ class RouteCard extends DetailsCard {
 
   @override
   Future<void> loadMore() async {
-    print("RouteCard.future()");
-    var req = Schedule.apiGetByRoute(route);
-    final DateFormat fmt = DateFormat("HH:mm");
-    req.query = "?limit=9&skip=${trips.scheds.length}&time=${fmt.format(referenceTime)}";
-    trips.merge(await TripBundle.fromRequest(req));
+    final Schedule? schedule;
+    if (selectedEntity.value is RouteDetails) {
+      schedule = (selectedEntity.value as RouteDetails).schedule;
+    } else {
+      schedule = null;
+    }
+
+    int count = 0;
+
+    // only set this once!!
+    refTimeWithDelay ??= referenceTime.subtract(Duration(minutes: schedule?.trip.delay ?? 0));
+
+    do {
+      print("loadMore iteration $count");
+      var req = Schedule.apiGetByRoute(route);
+      final DateFormat fmt = DateFormat("HH:mm");
+      req.query = "?limit=5&skip=${trips.length}&time=${fmt.format(refTimeWithDelay!)}";
+      final newBundle = await TripBundle.fromRequest(req);
+      await MapInteractor().getPaths(newBundle.schedules.map((t) => t.trip.path).toSet());
+      trips.merge(newBundle);
+      count++;
+      if (count > 4) {
+        print("loadMore iteration limit reached");
+        referenceTime = referenceTime.subtract(const Duration(minutes: 5));
+        needsRebuild();
+        break;
+      }
+    } while (schedule != null && !trips.contains(schedule));
+
+    if (schedule != null) {
+      setParentTab(schedule);
+    }
+  }
+
+  Future<void> onTabChange(TabController tabController) async {
+    final interactor = MapInteractor();
+    // print("UPDATED previousSchedIndex: ${previousSchedIndex} -> ${tabController.index}");
+    previousSchedIndex = tabController.index;
+    if (tabController.index == trips.schedules.length) {
+      // print("LOADING MORE SCHEDULES");
+      await loadMore();
+      needsRebuild();
+    } else {
+      // load trip path on map
+      final targetSched = trips.schedules.skip(tabController.index).first;
+      await interactor.focusOnSched(targetSched, route);
+    }
+  }
+
+  void setParentTab(Schedule schedule) {
+    int count = 0;
+    int index = -1;
+    for (final sched in trips.schedules) {
+      if (sched.trip.id == schedule.trip.id) {
+        index = count;
+        break;
+      }
+      count++;
+    }
+    parentSchedIndex = index == -1 ? null : index;
   }
 
   @override
-  Widget cardContent(BuildContext context, bool isLoading, int total, Function() loadMore) {
-    bool passed = true;
-    return isLoading ? const CircularProgressIndicator() :
-      DefaultTabController(
-        initialIndex: 0,
-        length: trips.scheds.length,
-        animationDuration: const Duration(milliseconds: 1000),
-        child: Column(
-          mainAxisSize: MainAxisSize.max,
-          children: [
-            TabBar(
+  Widget cardContent(BuildContext context, bool isLoading, int total, TickerProvider vsync, Function() loadMore) {
+    if (isLoading) {
+      tabController = null;
+      return const CircularProgressIndicator();
+    } else {
+      this.tabController = TabController(vsync: vsync, length: trips.schedules.length + 1);
+      final tabController = this.tabController!;
+      tabController.addListener(() {
+        onTabChange(tabController);
+      });
+
+      final tabs = <ScheduleTab>[];
+      for (final sched in trips.schedules) {
+        tabs.add(ScheduleTab(
+          scrollController: dragger.controller,
+          schedule: sched,
+          route: route,
+          stops: trips.stops,
+          parentStop: stop,
+        ));
+      }
+
+      final index = previousSchedIndex ?? parentSchedIndex ?? 0;
+      if (index < trips.schedules.length) {
+        final initialSchedule = tabs[previousSchedIndex ?? parentSchedIndex ?? 0].schedule;
+        MapInteractor().focusOnSched(initialSchedule,route);
+      }
+
+      // print("BUILDING ROUTE CARD: previousSchedIndex=$previousSchedIndex parentSchedIndex=$parentSchedIndex");
+      if (index != 0) {
+        tabController.animateTo(index, duration: const Duration(milliseconds: 500), curve: Curves.easeInOutCubic);
+      }
+      return DefaultTabController(
+        length: trips.length + 1,
+        child: Scaffold(
+          appBar: AppBar(
+            // title: Column(
+            //   mainAxisSize: MainAxisSize.max,
+            //   crossAxisAlignment: CrossAxisAlignment.center,
+            //   children: [
+            //     dragger,
+            //     title(),
+            //   ],
+            // ),
+            title: title(),
+            leading: Padding(padding: const EdgeInsets.all(8), child: icon()),
+            centerTitle: true,
+            actions: [
+              IconButton(
+                icon: Icon(isFavorite() ? Icons.favorite : Icons.favorite_border),
+                onPressed: () {
+                  favorite();
+                  needsRebuild();
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: () {
+                  update();
+                }
+              ),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () {
+                  dragger.collapse().then((_) => selectedEntity.value = null);
+                },
+              ),
+            ],
+            bottom: TabBar(
+              controller: tabController,
               isScrollable: true,
               tabs: [
-                for(var t in trips.scheds.values)
-                  Tab(text: "${t.trip.headsign} (${t.trip.id})"),
-                GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: () {
-                    print("loadMore, value:");
-                    print("controller: ${DefaultTabController.of(context)}");
-                  },
-                  child: const Tab(text: "Load more")
-                )
+                for(final t in trips.schedules.map((sched) {
+                  final dep = DateFormat("HH:mm").format(sched.departure.toLocal());
+                  return Tab(text: "${sched.trip.headsign} ${sched.trip.direction.icon} ($dep)");
+                }))
+                  t,
+                trips.length == 0 ? const Text("-") : const Tab(text: "Load more"),
               ],
             ),
-            LayoutBuilder(
-              builder: (context, constraints) => ValueListenableBuilder(
-                valueListenable: sizeController,
-                builder: (context, double size, child) {
-                  // print("Trip sequence at index 0:");
-                  // for (var t in trips.trips.values.first.times.entries) {
-                  //   print("${t.key} (${trips.stops[(t.key, route.areaType)]!.name}): ${fmt.format(t.value.arrival)}");
-                  // }
-                  // print("size: $size");
-                  return SizedBox(
-                    width: constraints.maxWidth - 48,
-                    height: sizeController.value - 100,
-                    child: child,
-                  ); 
-                },
-                child: TabBarView(
-                  children: [
-                    for(var t in trips.scheds.values)
-                      ListView.builder(
-                        itemCount: trips.paths[t.trip.path]?.sequence.length ?? 1,
-                        itemBuilder: (context, index) {
-                          if (!trips.paths.containsKey(t.trip.path)) {
-                            return const Center(child: Text("No path found"));
-                          }
-                          final currentStop = trips.paths[t.trip.path]!.sequence[index];
-                          // print("currentStop: ${route.areaType}/$currentStop");
-                          if (currentStop == t.trip.nextStop && t.trip.lastStop != t.trip.nextStop) {
-                            print("currentStop: ${route.areaType}/$currentStop");
-                            passed = false;
-                          } else if (index == 0) {
-                            passed = true;
-                          }
-                          return TripRouteTile(sched: t, route: route, passed: passed, stop: trips.stops[(currentStop, route.areaType)]!, onTap: () {});
-                        }
-                      ),
-                    const Center(child: CircularProgressIndicator()),
-                  ],
-                ),
-              )
-            ),
-          ]
-        )
+          ),
+          body: TabBarView(
+            controller: tabController,
+            children: [
+              for (final t in tabs)
+                t,
+              trips.length == 0 ? const Center(child: CircularProgressIndicator()) : const Tab(text: "Load more"),
+            ],
+          )
+        ),
       );
+    }
   }
 
   @override
-  Widget title() => Expanded(child: SizedBox(height: 70, child: ListView(children: [ListTile(
-    leading: RouteIcon(label: route.code, color: route.color),
-    title: Text(route.name, style: const TextStyle(fontSize: 20)),
-    subtitle: Text("Direction: $direction"),
-  )])));
+  Widget icon() => RouteIcon(label: route.code, color: route.color);
+
+  @override
+  Widget title() => 
+    Text(route.name, style: const TextStyle(fontSize: 16));
+}
+
+class ScheduleTab extends StatefulWidget {
+  const ScheduleTab({super.key, required this.schedule, required this.route, required this.stops, required this.scrollController, this.parentStop});
+
+  final Schedule schedule;
+  final Map<(int, AreaType), Stop> stops;
+  final br.Route route;
+  final ScrollController scrollController;
+  static const double tileHeight = 55;
+  final Stop? parentStop;
+
+  @override
+  State<ScheduleTab> createState() => _ScheduleTabState();
+}
+
+class _ScheduleTabState extends State<ScheduleTab> {
+  // final ScrollOffsetController _scrollOffsetController = ScrollOffsetController();
+  // final ItemPositionsListener _itemPositionsListener = ItemPositionsListener.create();
+  // final ScrollOffsetListener _scrollOffsetListener = ScrollOffsetListener.create();
+  late final bp.Path? path;
+  final scrollKeys = Map<int, GlobalKey>();
+
+  @override
+  void initState() {
+    super.initState();
+    path = MapInteractor().paths[widget.schedule.trip.path];
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final index = path?.passedStopIndex(widget.schedule.trip) ?? 0;
+      widget.scrollController.animateTo(
+      index * ScheduleTab.tileHeight, 
+        duration: const Duration(milliseconds: 500), 
+        curve: Curves.easeInOutCubic);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sched = widget.schedule;
+    final trip = sched.trip;
+    final path = MapInteractor().paths[trip.path];
+    final currentStop = path?.passedStopIndex(trip);
+
+    return ListView.builder(
+      controller: widget.scrollController,
+      itemCount: (path?.sequence.length ?? 0) + 1,
+      itemBuilder: (context, index) {
+        if (path == null) {
+          return const Center(child: Text("No path found"));
+        }
+        if (index == path.sequence.length) {
+          return Center(child: GestureDetector(
+            child: Column(
+              children: [
+                Text("Bus ID: ${trip.busId}"),
+                if (trip.delay != null)
+                  Text("${trip.delay! < 0 ? "Early" : "Delay"}: ${trip.delay} min"),
+                if (trip.lastEvent != null)
+                  Text("Last update: ${DateTime.now().difference(trip.lastEvent!).inSeconds} seconds ago"),
+                Text("Trip ID: ${trip.id}"),
+              ],
+            ),
+            onTap: () {
+              showDialog(context: context, builder: (context) {
+                return Dialog(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (final (key, value) in [
+                        ("Trip ID", trip.id),
+                        ("Bus ID", trip.busId),
+                      ])
+                        ListTile(
+                          title: Text(key),
+                          subtitle: Text(value.toString()),
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: value.toString()));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("$key copied to clipboard"))
+                            );
+                          },
+                        )
+                    ]
+                  )
+                );
+              });
+            }
+          ));
+        }
+        scrollKeys[index] = GlobalKey();
+        // print("Trip tracking info: nextStop=${trip.nextStop} lastStop=${trip.lastStop}");
+        final indexPassed = path.passedStopIndex(trip);
+        // print("sequence: ${path.sequence}[${path.passedStopIndex(trip)}] = ${busAtStop}");
+        final currentStop = path.sequence[index];
+        final stop = widget.stops[(currentStop, widget.route.areaType)]!;
+        // print("currentStop: ${route.areaType}/$currentStop");
+        return SizedBox(height: ScheduleTab.tileHeight, child: ScheduleStopTile(
+          sched: sched,
+          route: widget.route,
+          highlight: widget.parentStop == stop,
+          passed: indexPassed == null ? null : index <= indexPassed, 
+          stop: stop,
+          onTap: () async {
+            if (DetailsSheet.controller.isAttached) {
+              await DetailsSheet.controller.animateTo(DetailsSheet.initialSheetSize, duration: const Duration(milliseconds: 500), curve: Curves.easeInOutCubic);
+            }
+            MapInteractor().focusOnStop(widget.stops[(currentStop, widget.route.areaType)]!);
+          }));
+      }
+    );
+  }
 }
