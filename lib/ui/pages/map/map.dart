@@ -78,7 +78,7 @@ class MapDrawable {
     return MapDrawable(
       polylines: polylines,
       extraMarkers: _extraMarkers,
-    ); 
+    );
   }
 
   @override
@@ -274,7 +274,7 @@ class MapInteractor {
 
   Future<void> getPaths(Set<String> ids) async {
     final paths = await br.Path.getPathsCached(ids.toSet());
-    for (final path in paths) { 
+    for (final path in paths) {
       this.paths[path.id] = path;
       // await fetchPathSegments(path.id);
     }
@@ -296,7 +296,7 @@ class MapInteractor {
         } else if (selectedEntity.value is RouteDetails) {
           final route = selectedEntity.value! as RouteDetails;
           _focusedRoute = route.route;
-        } 
+        }
       }
     });
 
@@ -325,7 +325,7 @@ class MapInteractor {
       }();
     }
   }
-  
+
   void _onPositionServiceChange(ServiceStatus status) {
     print("===> position stream status changed: $status");
     if (status == ServiceStatus.disabled) {
@@ -337,7 +337,7 @@ class MapInteractor {
     } else {
       _positionStream = Geolocator.getPositionStream(locationSettings: locationSettings);
       _positionStreamSubscription = _positionStream!.listen(
-        _onNewPosition, 
+        _onNewPosition,
         onError: (e) {
           debugPrint("warning: tried to get position but got error: $e");
         },
@@ -453,7 +453,7 @@ class MapInteractor {
         //   - bus is at position 0% => p1 is distances[0] that is always the first point
         //   - bus is at position 100% => we set p2 as distances[distances.length - 1] and p1 as distances[distances.length - 2]
         //   - the only critical case is when the float rounding is not correct: if busIndex is -1 then set it to `distances.length - 2`
-        
+
         // NB: THIS INDEX REFERS TO THE GEOMETRY POINTS, NOT THE BUS STOPS.
         final busDistance = percent * distance;
         var busIndex = distances.indexWhere((d) => d >= busDistance);
@@ -551,7 +551,7 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
 
     mapMarkerProvider = MapMarkerProvider(() { MapInteractor().triggerMapUpdate(); });
     mapMarkerProvider.connectToMapEventStream(aCtrl.mapController.mapEventStream, /* context */);
-    
+
     globalController.register(aCtrl, mapMarkerProvider);
 
     Settings().getConverted("map.position").then((value) {
@@ -704,7 +704,7 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
         ),
         // floatingActionButton for unfocusing current trip
         floatingActionButton: ValueListenableBuilder(
-          valueListenable: MapInteractor().locationServiceEnabled, 
+          valueListenable: MapInteractor().locationServiceEnabled,
           builder: (context, value, child) {
             if (value) {
               return FloatingActionButton(
