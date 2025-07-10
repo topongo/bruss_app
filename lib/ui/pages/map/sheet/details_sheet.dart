@@ -143,8 +143,8 @@ class _DetailsSheetState extends State<DetailsSheet> {
                   onDrag: (details) {
                     _onDrag(details);
                   },
-                  collapse: () async {
-                    await _animateSheet(0);
+                  collapse: (size) async {
+                    await _animateSheet(size);
                   },
                   controller: scrollController,
                 );
@@ -164,7 +164,7 @@ class Dragger extends StatelessWidget {
   const Dragger({required this.onTap, required this.onDrag, required this.controller, required this.collapse, super.key});
   final Function(DragUpdateDetails) onDrag;
   final Function() onTap;
-  final Future<void> Function() collapse;
+  final Future<void> Function(double size) collapse;
   final ScrollController controller;
 
   @override

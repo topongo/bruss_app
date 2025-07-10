@@ -223,9 +223,15 @@ class StopCard extends DetailsCard {
             }
           ),
           IconButton(
+            icon: const Icon(Icons.arrow_downward),
+            onPressed: () {
+              dragger.collapse(0.05);
+            }
+          ),
+          IconButton(
             icon: const Icon(Icons.close),
             onPressed: () {
-              dragger.collapse().then((_) => selectedEntity.value = null);
+              dragger.collapse(0).then((_) => selectedEntity.value = null);
             },
           ),
         ]
@@ -425,9 +431,15 @@ class RouteCard extends DetailsCard {
                 }
               ),
               IconButton(
+                icon: const Icon(Icons.arrow_downward),
+                onPressed: () {
+                  dragger.collapse(0.05);
+                }
+              ),
+              IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: () {
-                  dragger.collapse().then((_) => selectedEntity.value = null);
+                  dragger.collapse(0).then((_) => selectedEntity.value = null);
                 },
               ),
             ],
