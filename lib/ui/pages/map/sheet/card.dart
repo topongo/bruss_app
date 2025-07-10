@@ -191,8 +191,8 @@ class StopCard extends DetailsCard {
   @override
   Future<void> loadMore() async {
     var req = Schedule.apiGetByStop(stop);
-    final DateFormat fmt = DateFormat("HH:mm");
-    req.query = "?limit=10&skip=${trips.length}&time=${fmt.format(referenceTime)}";
+    // final DateFormat fmt = DateFormat("HH:mm");
+    req.query = "?limit=10&skip=${trips.length}&time=${referenceTime.toUtc().toIso8601String()}Z";
     final newBundle = await TripBundle.fromRequest(req);
     await MapInteractor().getPaths(newBundle.schedules.map((t) => t.trip.path).toSet());
     trips.merge(newBundle);
@@ -317,7 +317,7 @@ class RouteCard extends DetailsCard {
       print("loadMore iteration $count");
       var req = Schedule.apiGetByRoute(route);
       final DateFormat fmt = DateFormat("HH:mm");
-      req.query = "?limit=5&skip=${trips.length}&time=${fmt.format(refTimeWithDelay!)}";
+      req.query = "?limit=5&skip=${trips.length}&time=${refTimeWithDelay!.toUtc().toIso8601String()}Z";
       final newBundle = await TripBundle.fromRequest(req);
       await MapInteractor().getPaths(newBundle.schedules.map((t) => t.trip.path).toSet());
       trips.merge(newBundle);
