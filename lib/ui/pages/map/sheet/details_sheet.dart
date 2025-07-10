@@ -73,7 +73,7 @@ class _DetailsSheetState extends State<DetailsSheet> {
     print("size: $size");
     widget.previousSize = size;
   }
-  
+
   void _toggle() {
     if (controller.size == sheet.maxChildSize) {
       _min();

@@ -58,7 +58,7 @@ class _HomePageState extends State<HomePage> {
         ErrorHandler.onPlatformError(error.attachRetry(checkApiConnection), stack);
       }
     });
-  } 
+  }
 
   static Future<void> initDB() async {
     final db = BrussDB();
@@ -112,7 +112,7 @@ class _HomePageState extends State<HomePage> {
               onTap: () {},
               onDrag: (_) {},
               controller: ScrollController(),
-              collapse: () async {},
+              collapse: (_) async {},
             );
             return det;
           }),
@@ -147,7 +147,7 @@ class _HomePageState extends State<HomePage> {
             NavigationRailDestination(icon: Icon(Icons.science), label: Text("Testing")),
           ],
           selectedIndex: selectedIndex,
-          onDestinationSelected: (value) => { 
+          onDestinationSelected: (value) => {
             setState(() {
               selectedIndex = value;
               Navigator.pop(context);
@@ -181,7 +181,7 @@ class _HomePageState extends State<HomePage> {
       ]))
     );
   }
-  
+
   @override
   Widget build(BuildContext context) {
     ErrorHandler.registerContext(context);

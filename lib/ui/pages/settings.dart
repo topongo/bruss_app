@@ -8,7 +8,7 @@ String capitalize(String s) => s[0].toUpperCase() + s.substring(1);
 class SettingsPage extends StatefulWidget {
   final Future<Map<String, dynamic>> settings = Settings().getAll();
 
-  @override 
+  @override
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
@@ -27,7 +27,7 @@ class _SettingsPageState extends State<SettingsPage> {
               children: [
                 for(var cat in settings.entries)
                   ...[
-                    ListTile( 
+                    ListTile(
                       subtitle: Text(capitalize(SettingsMeta.title(cat.key))),
                     ),
                     for(var setting in cat.value.entries.where((e) => e.key != "_title"))
@@ -62,7 +62,7 @@ class _SettingsPageState extends State<SettingsPage> {
         }
       }
     );
-  } 
+  }
 }
 
 void showSettingDialog(BuildContext context, String key, String value, FutureOr<void> Function(BuildContext, TextField) onSave, Function(BuildContext) onCancel) {
@@ -85,7 +85,7 @@ void showSettingDialog(BuildContext context, String key, String value, FutureOr<
             mainAxisSize: MainAxisSize.min,
             children: [
               Text("Edit value $key"),
-              field, 
+              field,
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [

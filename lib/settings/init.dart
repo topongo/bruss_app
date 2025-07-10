@@ -85,15 +85,20 @@ class SettingsMeta {
     "api.host": "https://bruss.prabo.org",
     "api.url": "/api/v1/",
     "map.position": setConverters["map.position"]!(trento),
+    "map.userPositionMockEnable": "false",
+    "map.userPositionMock": "null",
   };
 
   static final Map<String, String> titles = {
     "api": "API",
+    "map": "Map",
   };
 
   static final Map<String, String> descriptions = {
     "api.url": "Development: Url of the API server to use",
     "api.host": "Development: Host of the API server to use",
+    "map.userPositionMockEnable": "Enable user position mock",
+    "map.userPositionMock": "User position mock, used for testing purposes",
   };
 
   static final Map<String, String Function(String)> checkers = {
@@ -137,6 +142,21 @@ class SettingsMeta {
         throw Exception("Invalid position format");
       }
       return "$lat,$lon";
+    },
+    "map.userPositionMock": (pos) {
+      if (pos == "null") {
+        return "null";
+      }
+      final parts = pos.split(",");
+      if (parts.length != 2) {
+        throw Exception("Invalid position format");
+      }
+      final lat = double.tryParse(parts[0]);
+      final lon = double.tryParse(parts[1]);
+      if (lat == null || lon == null) {
+        throw Exception("Invalid position format");
+      }
+      return "$lat,$lon";
     }
   };
 
@@ -144,11 +164,31 @@ class SettingsMeta {
     "map.position": (pos) {
       final posConv = pos as LatLng;
       return "${posConv.latitude},${posConv.longitude}";
+    },
+    "map.userPositionMockEnable": (val) {
+      return val.toString().toLowerCase() == "true" || val == true ? "true" : "false";
+    },
+    "map.userPositionMock": (pos) {
+      if (pos == null) {
+        return "null";
+      }
+      final posConv = pos as LatLng;
+      return "${posConv.latitude},${posConv.longitude}";
     }
   };
 
   static final Map<String, dynamic Function(String)> getConverters = {
     "map.position": (pos) {
+      final parts = pos.split(",");
+      return LatLng(double.parse(parts[0]), double.parse(parts[1]));
+    },
+    "map.userPositionMockEnable": (val) {
+      return val.toLowerCase() == "true" || val == "1";
+    },
+    "map.userPositionMock": (pos) {
+      if (pos == "null") {
+        return null;
+      }
       final parts = pos.split(",");
       return LatLng(double.parse(parts[0]), double.parse(parts[1]));
     }

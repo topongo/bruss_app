@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:bruss/api.dart';
@@ -32,9 +31,9 @@ abstract class DetailsCard extends StatefulWidget {
   final StreamController<void> _needsRebuildController = StreamController();
   void needsRebuild() => _needsRebuildController.add(null);
   Dragger dragger;
-  
+
   Stop? stopReference();
-  
+
   void favorite();
   Widget title();
   Widget icon();
@@ -138,7 +137,7 @@ class _DetailsCardState extends State<DetailsCard> with TickerProviderStateMixin
     setState(() {
       // print("NEEDSREBUILD has been called!");
     });
-  } 
+  }
 
   void _onPostFrame(_) {
     if (DetailsSheet.controller.isAttached && DetailsSheet.controller.size == 0) {
@@ -181,7 +180,7 @@ class StopCard extends DetailsCard {
     }
     db.updateStop(stop);
   }
-  
+
   @override
   bool isFavorite() => stop.isFavorite ?? false;
 
@@ -238,7 +237,7 @@ class StopCard extends DetailsCard {
           itemBuilder: (context, index) {
             if (index == scheds.length) {
               return hasMore() ? ElevatedButton(
-                onPressed: loadMore, 
+                onPressed: loadMore,
                 child: isLoading ? const CircularProgressIndicator()
                   : const Text("Load more")
               ) : total == 0 ? const Text("No trips") : const Text("No more trips");
@@ -292,7 +291,7 @@ class RouteCard extends DetailsCard {
     }
     db.updateRoute(route);
   }
-  
+
   @override
   bool isFavorite() => route.isFavorite ?? false;
 
@@ -462,7 +461,7 @@ class RouteCard extends DetailsCard {
   Widget icon() => RouteIcon(label: route.code, color: route.color);
 
   @override
-  Widget title() => 
+  Widget title() =>
     Text(route.name, style: const TextStyle(fontSize: 16));
 }
 
@@ -494,8 +493,8 @@ class _ScheduleTabState extends State<ScheduleTab> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final index = path?.passedStopIndex(widget.schedule.trip) ?? 0;
       widget.scrollController.animateTo(
-      index * ScheduleTab.tileHeight, 
-        duration: const Duration(milliseconds: 500), 
+      index * ScheduleTab.tileHeight,
+        duration: const Duration(milliseconds: 500),
         curve: Curves.easeInOutCubic);
     });
   }
@@ -564,7 +563,7 @@ class _ScheduleTabState extends State<ScheduleTab> {
           sched: sched,
           route: widget.route,
           highlight: widget.parentStop == stop,
-          passed: indexPassed == null ? null : index <= indexPassed, 
+          passed: indexPassed == null ? null : index <= indexPassed,
           stop: stop,
           onTap: () async {
             if (DetailsSheet.controller.isAttached) {

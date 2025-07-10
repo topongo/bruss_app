@@ -300,9 +300,33 @@ class MapInteractor {
       }
     });
 
-    // start position tracking if platform supports it.
-    if (!Platform.isLinux) {
-      () async {
+    // start position tracking if platform supports it. or don't if position mock is activated
+    () async {
+      final posMockEnabled = await Settings().getConverted("map.userPositionMockEnable").then((value) => value as bool);
+      if (posMockEnabled) {
+        print("===> position mock enabled, not starting position tracking");
+        // _onPositionServiceChange(ServiceStatus.enabled);
+        // final streamCtrl = StreamController<Position>();
+        // _positionStream = streamCtrl.stream;
+
+        final posMock = await Settings().getConverted("map.userPositionMock").then((value) => (value as LatLng?) ?? trento);
+        locationServiceEnabled.value = true;
+        _onNewPosition(Position(
+          latitude: posMock.latitude,
+          longitude: posMock.longitude,
+          timestamp: DateTime.now(),
+          accuracy: 1.0,
+          altitude: 0.0,
+          speed: 0.0,
+          speedAccuracy: 0.0,
+          heading: 0.0,
+          isMocked: true, // this is a mock position
+          altitudeAccuracy: 0.0,
+          floor: null,
+          headingAccuracy: 0.0,
+        ));
+        return;
+      } else if (!Platform.isLinux) {
         print("===> checking location permission");
         LocationPermission permission = await Geolocator.checkPermission();
         if (permission == LocationPermission.deniedForever) {
@@ -322,8 +346,8 @@ class MapInteractor {
         if (await Geolocator.isLocationServiceEnabled()) {
           _onPositionServiceChange(ServiceStatus.enabled);
         }
-      }();
-    }
+      }
+    }();
   }
 
   void _onPositionServiceChange(ServiceStatus status) {
