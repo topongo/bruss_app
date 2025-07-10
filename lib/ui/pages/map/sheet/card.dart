@@ -321,7 +321,6 @@ class RouteCard extends DetailsCard {
     do {
       print("loadMore iteration $count");
       var req = Schedule.apiGetByRoute(route);
-      final DateFormat fmt = DateFormat("HH:mm");
       req.query = "?limit=5&skip=${trips.length}&time=${refTimeWithDelay!.toUtc().toIso8601String()}Z";
       final newBundle = await TripBundle.fromRequest(req);
       await MapInteractor().getPaths(newBundle.schedules.map((t) => t.trip.path).toSet());

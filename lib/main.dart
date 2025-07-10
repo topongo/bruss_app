@@ -32,7 +32,7 @@ void main() async {
   final rawStyle = await rootBundle.loadString("assets/map_style.json");
   final Map<String, dynamic> dataStyle = jsonDecode(rawStyle);
   final style = Style(
-    theme: ThemeReader().read(dataStyle), 
+    theme: ThemeReader().read(dataStyle),
     providers: TileProviders(
       {"immich-map": NetworkVectorTileProvider(
         type: TileProviderType.vector,
